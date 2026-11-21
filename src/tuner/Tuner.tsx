@@ -30,7 +30,8 @@ export function Tuner(p: Props) {
   const [error, setError] = createSignal("");
   const [sheet, setSheet] = createSignal(false);
   const [tuned, setTuned] = createSignal<number[]>([]);
-  const [toning, setToning] = createSignal<number | null>(null); // string whose reference note is playing
+  // The note playing (MIDI), not the string index: the tuning may change while it rings.
+  const [toning, setToning] = createSignal<number | null>(null);
   const [plays, setPlays] = createSignal(0); // restarts the countdown ring on each tap
   const smoother = new Smoother();
   let mic: Mic | undefined;
@@ -45,7 +46,7 @@ export function Tuner(p: Props) {
     deafUntil = performance.now() + TONE_SECONDS * 1000 + 150;
     smoother.reset();
     setMidi(null);
-    setToning(i);
+    setToning(p.tuning.notes[i]);
     setPlays(plays() + 1);
     clearTimeout(toneTimer);
     toneTimer = setTimeout(() => setToning(null), TONE_SECONDS * 1000);
@@ -145,7 +146,7 @@ export function Tuner(p: Props) {
   const hint = () => {
     const c = cents();
     if (error()) return error();
-    if (toning() !== null) return `Playing ${noteName(p.tuning.notes[toning()!])}…`;
+    if (toning() !== null) return `Playing ${noteName(toning()!)}…`;
     if (!running()) return "Tap to tune, then play a string";
     if (c === null) return "Play a string";
     if (status() === "in") return "In tune";
