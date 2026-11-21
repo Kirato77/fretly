@@ -11,5 +11,5 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "vite.config.ts", "capacitor.config.ts"]
+  "include": ["src", "test", "scripts", "vite.config.ts", "capacitor.config.ts"]
 }

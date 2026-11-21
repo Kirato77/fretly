@@ -29,11 +29,13 @@ async function checkForUpdate() {
   busy = true;
   try {
     setStatus("checking for updates…");
-    const latest = await getJson<{ version: string; url: string; checksum: string }>(LATEST);
+    const latest = await getJson<{ version: string; url: string; checksum: string; sessionKey: string }>(LATEST);
     if (!isNewer(latest.version, VERSION)) return setStatus("up to date");
     setStatus(`downloading ${latest.version}…`);
-    // checksum = SHA-256 of the zip: the plugin requires it and rejects a download that does not match.
-    const bundle = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
+    // The bundle is encrypted and its SHA-256 signed in CI (scripts/sign-bundle.ts). The plugin opens both with
+    // the public key from capacitor.config.ts and refuses to install anything that does not match.
+    const { url, version, checksum, sessionKey } = latest;
+    const bundle = await CapacitorUpdater.download({ url, version, checksum, sessionKey });
     await CapacitorUpdater.next({ id: bundle.id });
     setReadyId(bundle.id);
     setStatus(`${latest.version} ready`);

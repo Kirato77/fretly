@@ -37,14 +37,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NOTES: ${{ github.event.head_commit.message }}
+          BUNDLE_PRIVATE_KEY: ${{ secrets.BUNDLE_PRIVATE_KEY }}
         run: |
           tag="web-$VITE_APP_VERSION"
           if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already published"; exit 0; fi
           (cd dist && zip -qr ../bundle.zip .)
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bundle.zip"
-          # The updater refuses a bundle without the SHA-256 of its zip, and checks it before installing.
-          checksum=$(sha256sum bundle.zip | cut -d' ' -f1)
-          printf '{"version":"%s","url":"%s","checksum":"%s"}\n' "$VITE_APP_VERSION" "$url" "$checksum" > latest.json
+          # Encrypt bundle.zip in place and sign its SHA-256: the app only installs what the private key produced.
+          sig=$(node scripts/sign-bundle.ts bundle.zip)
+          jq -n --arg version "$VITE_APP_VERSION" --arg url "$url" \
+            --arg checksum "$(jq -r .checksum <<<"$sig")" --arg sessionKey "$(jq -r .sessionKey <<<"$sig")" \
+            '{version: $version, url: $url, checksum: $checksum, sessionKey: $sessionKey}' > latest.json
           gh release create "$tag" bundle.zip latest.json --title "Web $VITE_APP_VERSION" --notes "${NOTES:-Manual build}" --latest
           # Keep the three most recent web releases.
           gh release list --limit 100 --json tagName --jq '.[].tagName | select(startswith("web-"))' \
