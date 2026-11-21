@@ -26,7 +26,10 @@ const keep = (list: Favorite[]) => {
 };
 
 export async function loadFavorites() {
-  setFavorites(await load<Favorite[]>(LIST, []));
+  const list = await load<Favorite[]>(LIST, []);
+  // Favorites saved before 0.1.17952925xx carry labels like "Tab · Rhythm Guitar" or "Chords · ★4.8 (12)".
+  const label = (l: string) => l.replace(/^Tab · /, "").replace(/ · ★.*$/, "");
+  setFavorites(list.map((f) => ({ ...f, hit: { ...f.hit, label: label(f.hit.label) } })));
 }
 
 export async function addFavorite(hit: SearchHit, doc: TabDoc, semis: number) {

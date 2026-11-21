@@ -6,6 +6,8 @@ import { TabView } from "./tabs/TabView";
 import type { SearchHit } from "./tabs/types";
 import { Tuner } from "./tuner/Tuner";
 import { DEFAULT_TUNING, PRESETS, type Tuning } from "./tuner/tunings";
+import { Icon } from "./ui/Icon";
+import { applyUpdate, updateReady } from "./updater";
 
 export function App() {
   const [view, setView] = createSignal<"tuner" | "tabs">("tuner");
@@ -67,12 +69,20 @@ export function App() {
           <Show when={openHit()}>{(hit) => <TabView hit={hit()} onBack={() => setOpenHit(null)} />}</Show>
         </section>
       </main>
+      <Show when={updateReady()}>
+        <div class="update-toast" role="status">
+          <span>New version ready</span>
+          <button onClick={applyUpdate}>Restart</button>
+        </div>
+      </Show>
       <nav class="tabbar">
-        <button classList={{ on: view() === "tuner" }} onClick={() => setView("tuner")}>
-          Tuner
+        <button classList={{ on: view() === "tuner" }} onClick={() => setView("tuner")} aria-current={view() === "tuner" ? "page" : undefined}>
+          <Icon name="tuner" />
+          <span>Tuner</span>
         </button>
-        <button classList={{ on: view() === "tabs" }} onClick={() => setView("tabs")}>
-          Tabs
+        <button classList={{ on: view() === "tabs" }} onClick={() => setView("tabs")} aria-current={view() === "tabs" ? "page" : undefined}>
+          <Icon name="tabs" />
+          <span>Tabs</span>
         </button>
       </nav>
     </div>

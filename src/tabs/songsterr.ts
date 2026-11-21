@@ -72,7 +72,7 @@ export function parseSongsterrSearch(songs: SsSong[], instrument: Instrument): S
         source: "songsterr" as const,
         artist: song.artist,
         title: song.title,
-        label: `Tab · ${trackName(t)}`,
+        label: trackName(t),
         ref: `${song.songId}/${index}`,
       })),
   );

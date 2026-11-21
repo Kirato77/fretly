@@ -41,6 +41,15 @@ describe("favorites", () => {
     expect(fav.favorites().map((f) => [f.id, f.semis])).toEqual([["ug:u1", -3]]);
   });
 
+  it("cleans labels saved by older versions", async () => {
+    store.set("favorites", [
+      { id: "ug:u1", hit: { ...hit("u1"), label: "Chords · ★4.8 (12)" }, semis: 0 },
+      { id: "songsterr:1/2", hit: { ...hit("1/2"), source: "songsterr", label: "Tab · Rhythm Guitar" }, semis: 0 },
+    ]);
+    await fav.loadFavorites();
+    expect(fav.favorites().map((f) => f.hit.label)).toEqual(["Chords", "Rhythm Guitar"]);
+  });
+
   it("removing deletes the saved tab too", async () => {
     await fav.addFavorite(hit("u1"), doc, 0);
     await fav.removeFavorite("ug:u1");

@@ -16,6 +16,7 @@ interface UgResult {
   rating?: number;
   votes?: number;
   tab_url: string;
+  version?: number;
   tab_access_type?: string;
   marketing_type?: string;
 }
@@ -47,7 +48,10 @@ export function parseUgSearch(html: string, instrument: Instrument): SearchHit[]
       source: "ug" as const,
       artist: r.artist_name,
       title: r.song_name,
-      label: `${r.type} · ★${(r.rating ?? 0).toFixed(1)} (${r.votes ?? 0})`,
+      // Several versions of the same type are common: "Chords · v2" tells them apart.
+      label: r.version && r.version > 1 ? `${r.type} · v${r.version}` : r.type!,
+      rating: r.rating ?? 0,
+      votes: r.votes ?? 0,
       score: score(r.rating ?? 0, r.votes ?? 0),
       ref: r.tab_url,
     }))

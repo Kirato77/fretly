@@ -1,11 +1,15 @@
 import { createEffect, createResource, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
-import { transposeLine } from "./chords";
+import { load, save } from "../storage";
+import { Icon } from "../ui/Icon";
+import { transposeLine, wrapSheet } from "./chords";
 import { addFavorite, favoriteId, findFavorite, loadFavoriteTab, removeFavorite, setFavoriteSemis } from "./favorites";
+import { SourceBadge } from "./Search";
 import { fetchSongsterrTab, trackToLines } from "./songsterr";
-import { SOURCE_NAMES, type SearchHit } from "./types";
+import type { SearchHit } from "./types";
 import { fetchUgTab } from "./ug";
 
 const CHAR_RATIO = 0.6; // monospace glyph width / font size
+const SPEEDS = [10, 15, 20, 30, 40, 55, 75, 100]; // auto-scroll, px/s
 
 export function TabView(p: { hit: SearchHit; onBack(): void }) {
   const id = favoriteId(p.hit);
@@ -23,28 +27,46 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
     if (isFavorite()) void removeFavorite(id);
     else if (d) void addFavorite(p.hit, d, semis());
   };
+
   const [size, setSize] = createSignal(14);
-  const [speed, setSpeed] = createSignal(0); // px/s, 0 = autoscroll off
+  const [playing, setPlaying] = createSignal(false);
+  const [speedIdx, setSpeedIdx] = createSignal(3);
   const [width, setWidth] = createSignal(360);
   let body!: HTMLDivElement;
+
+  // Text size and scroll speed are personal: remembered across tabs.
+  onMount(async () => {
+    setSize(await load("tabFontSize", 14));
+    setSpeedIdx(await load("tabSpeed", 3));
+  });
+  const changeSize = (d: number) => {
+    setSize(Math.min(24, Math.max(9, size() + d)));
+    void save("tabFontSize", size());
+  };
+  const changeSpeed = (d: number) => {
+    setSpeedIdx(Math.min(SPEEDS.length - 1, Math.max(0, speedIdx() + d)));
+    void save("tabSpeed", speedIdx());
+  };
 
   const cols = () => Math.max(30, Math.floor(width() / (size() * CHAR_RATIO)));
   const lines = () => {
     const d = doc();
     if (!d) return [];
-    return (d.track ? trackToLines(d.track, cols()) : (d.lines ?? [])).map((l) => transposeLine(l, semis()));
+    if (d.track) return trackToLines(d.track, cols());
+    // Transpose first (chord names change length), then fit the sheet to the screen width.
+    return wrapSheet((d.lines ?? []).map((l) => transposeLine(l, semis())), cols());
   };
 
   onMount(() => {
-    const ro = new ResizeObserver(() => setWidth(body.clientWidth - 24));
+    const ro = new ResizeObserver(() => setWidth(body.clientWidth - 32));
     ro.observe(body);
     onCleanup(() => ro.disconnect());
   });
 
-  // Auto-scroll: the frame loop only runs while a speed is set, and restarts when it changes.
+  // Auto-scroll: the frame loop only runs while playing, and restarts when the speed changes.
   createEffect(() => {
-    const pxPerSec = speed();
-    if (!pxPerSec) return;
+    if (!playing()) return;
+    const pxPerSec = SPEEDS[speedIdx()];
     let raf = 0;
     let last = 0;
     let pos = body.scrollTop; // scrollTop is rounded to pixels: keep the fraction here
@@ -53,6 +75,7 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
         if (Math.abs(pos - body.scrollTop) > 2) pos = body.scrollTop; // user dragged
         pos += (pxPerSec * (t - last)) / 1000;
         body.scrollTop = pos;
+        if (body.scrollTop + body.clientHeight >= body.scrollHeight - 1) setPlaying(false); // reached the end
       }
       last = t;
       raf = requestAnimationFrame(tick);
@@ -63,67 +86,36 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
 
   return (
     <div class="tabview">
-      <header>
-        <button class="ghost" onClick={p.onBack}>
-          ‹ Back
+      <header class="tab-head">
+        <button class="icon-btn" onClick={p.onBack} aria-label="Back to search">
+          <Icon name="back" />
         </button>
-        <div class="title">
+        <div class="tab-title">
           <strong>{p.hit.title}</strong>
-          <span class="muted">
-            {p.hit.artist} · <Show when={!doc.error && doc()?.kind}>{(kind) => `${kind()} · `}</Show>
-            {SOURCE_NAMES[p.hit.source]}
+          <span>
+            {p.hit.artist} · {p.hit.label}
           </span>
         </div>
+        <SourceBadge source={p.hit.source} />
         <button
-          class="ghost star"
+          class="icon-btn star"
           classList={{ on: isFavorite() }}
           disabled={!isFavorite() && (doc.loading || !!doc.error)}
           onClick={toggleFavorite}
           aria-pressed={isFavorite()}
-          aria-label={isFavorite() ? "Remove from favorites" : "Add to favorites"}
+          aria-label={isFavorite() ? "Remove from favorites" : "Save to favorites"}
         >
-          {isFavorite() ? "★" : "☆"}
+          <Icon name="star" filled={isFavorite()} />
         </button>
       </header>
 
-      <div class="tools">
-        <Show when={!doc.error && doc()?.transposable}>
-          <span class="group">
-            <button class="ghost" onClick={() => setSemis(semis() - 1)} aria-label="Transpose down">
-              ♭
-            </button>
-            <span>{semis() > 0 ? `+${semis()}` : semis()}</span>
-            <button class="ghost" onClick={() => setSemis(semis() + 1)} aria-label="Transpose up">
-              ♯
-            </button>
-          </span>
-        </Show>
-        <span class="group">
-          <button class="ghost" onClick={() => setSize(Math.max(9, size() - 1))} aria-label="Smaller text">
-            A−
-          </button>
-          <button class="ghost" onClick={() => setSize(Math.min(24, size() + 1))} aria-label="Larger text">
-            A+
-          </button>
-        </span>
-        <span class="group">
-          <button class="ghost" onClick={() => setSpeed(Math.max(0, speed() - 10))} aria-label="Scroll slower">
-            −
-          </button>
-          <button classList={{ ghost: true, on: speed() > 0 }} onClick={() => setSpeed(speed() ? 0 : 30)}>
-            {speed() ? `Scroll ${speed()}` : "Scroll"}
-          </button>
-          <button class="ghost" onClick={() => setSpeed(Math.min(200, speed() + 10))} aria-label="Scroll faster">
-            +
-          </button>
-        </span>
-      </div>
-
       <div class="tab-body" ref={body}>
-        <Show when={!doc.loading} fallback={<p class="muted">Loading…</p>}>
-          <Show when={!doc.error} fallback={<p class="error">Could not load this tab ({String(doc.error)}).</p>}>
+        <Show when={!doc.loading} fallback={<div class="tab-loading">Loading the tab…</div>}>
+          <Show when={!doc.error} fallback={<p class="notice">This tab could not be loaded. Check the connection and try again.</p>}>
             <Show when={doc()?.info.length}>
-              <p class="info">{doc()!.info.join(" · ")}</p>
+              <div class="info-chips">
+                <For each={doc()!.info}>{(i) => <span class="info-chip">{i}</span>}</For>
+              </div>
             </Show>
             <pre style={{ "font-size": `${size()}px` }}>
               <Index each={lines()}>
@@ -139,6 +131,46 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
             </pre>
           </Show>
         </Show>
+      </div>
+
+      <div class="tab-toolbar">
+        <Show when={!doc.error && doc()?.transposable}>
+          <div class="tool" aria-label="Transpose">
+            <button onClick={() => setSemis(semis() - 1)} aria-label="Transpose down">
+              ♭
+            </button>
+            <span class="tool-value">{semis() > 0 ? `+${semis()}` : semis() || "Key"}</span>
+            <button onClick={() => setSemis(semis() + 1)} aria-label="Transpose up">
+              ♯
+            </button>
+          </div>
+        </Show>
+        <div class="tool" aria-label="Text size">
+          <button onClick={() => changeSize(-1)} aria-label="Smaller text">
+            <span class="aa small">A</span>
+          </button>
+          <button onClick={() => changeSize(1)} aria-label="Larger text">
+            <span class="aa">A</span>
+          </button>
+        </div>
+        <div class="tool scroll" classList={{ on: playing() }}>
+          <Show when={playing()}>
+            <button onClick={() => changeSpeed(-1)} aria-label="Scroll slower">
+              <Icon name="minus" size={16} />
+            </button>
+          </Show>
+          <button class="play" onClick={() => setPlaying(!playing())} aria-label={playing() ? "Stop auto-scroll" : "Start auto-scroll"}>
+            <Icon name={playing() ? "pause" : "play"} size={18} filled={!playing()} />
+            <Show when={playing()} fallback={<span>Scroll</span>}>
+              <span>{speedIdx() + 1}</span>
+            </Show>
+          </button>
+          <Show when={playing()}>
+            <button onClick={() => changeSpeed(1)} aria-label="Scroll faster">
+              <Icon name="plus" size={16} />
+            </button>
+          </Show>
+        </div>
       </div>
     </div>
   );

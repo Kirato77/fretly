@@ -1,12 +1,15 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { Icon } from "../ui/Icon";
+import { Dial } from "./Dial";
 import { noteName, octave, pitchClass } from "./notes";
 import { nearestString, Smoother, startMic, type Mic } from "./pitch";
-import { applyUpdate, updateReady, updateStatus, VERSION } from "../updater";
-import { INSTRUMENTS, PRESETS, type Tuning } from "./tunings";
+import { TuningSheet } from "./TuningSheet";
+import { INSTRUMENTS, type Tuning } from "./tunings";
 
 const IN_TUNE = 2; // cents
 const CLOSE = 10;
 const SILENCE_MS = 400; // keep showing the last reading briefly while the string decays
+const TUNED_AFTER_MS = 600; // held in tune this long = string ticked as tuned
 
 interface Props {
   tuning: Tuning;
@@ -24,7 +27,8 @@ export function Tuner(p: Props) {
   const [locked, setLocked] = createSignal<number | null>(null);
   const [running, setRunning] = createSignal(false);
   const [error, setError] = createSignal("");
-  const [editing, setEditing] = createSignal<Tuning | null>(null);
+  const [sheet, setSheet] = createSignal(false);
+  const [tuned, setTuned] = createSignal<number[]>([]);
   const smoother = new Smoother();
   let mic: Mic | undefined;
   let starting = false;
@@ -79,7 +83,15 @@ export function Tuner(p: Props) {
     document.removeEventListener("visibilitychange", onVisibility);
     stop();
   });
-  createEffect(on(() => p.tuning, () => setLocked(null)));
+  createEffect(
+    on(
+      () => p.tuning,
+      () => {
+        setLocked(null);
+        setTuned([]);
+      },
+    ),
+  );
 
   const target = () => {
     const m = midi();
@@ -96,198 +108,114 @@ export function Tuner(p: Props) {
     return Math.abs(c) <= IN_TUNE ? "in" : Math.abs(c) <= CLOSE ? "close" : "off";
   };
 
-  const pickInstrument = (id: string) =>
-    p.tuning.instrument !== id && p.onTuning(PRESETS.find((t) => t.instrument === id)!.id);
+  // Tick a string once it has stayed in tune for a moment: shows tuning progress across the strings.
+  let inTuneSince = 0;
+  let inTuneString: number | null = null;
+  createEffect(() => {
+    const t = target();
+    if (status() !== "in" || t === null) return void (inTuneSince = 0);
+    const now = performance.now();
+    if (t !== inTuneString || !inTuneSince) {
+      inTuneString = t;
+      inTuneSince = now;
+    } else if (now - inTuneSince > TUNED_AFTER_MS && !tuned().includes(t)) {
+      setTuned([...tuned(), t]);
+    }
+  });
+
+  const hint = () => {
+    const c = cents();
+    if (error()) return error();
+    if (!running()) return "Tap to tune, then play a string";
+    if (c === null) return "Play a string";
+    if (status() === "in") return "In tune";
+    return c < 0 ? "Too low · tune up" : "Too high · tune down";
+  };
 
   return (
     <div class={`tuner ${status()}`}>
-      <div class="segmented">
-        <For each={INSTRUMENTS}>
-          {(i) => (
-            <button classList={{ on: p.tuning.instrument === i.id }} onClick={() => pickInstrument(i.id)}>
-              {i.label}
+      <div class="tuner-glow" aria-hidden="true" />
+
+      <button class="tuning-pill" onClick={() => setSheet(true)} aria-label={`Tuning: ${p.tuning.name}. Change`}>
+        <span class="pill-instrument">{INSTRUMENTS.find((i) => i.id === p.tuning.instrument)!.label}</span>
+        <span class="pill-name">{p.tuning.name}</span>
+        <span class="pill-notes">{p.tuning.notes.map(pitchClass).join(" ")}</span>
+        <Icon name="chevronDown" size={18} />
+      </button>
+
+      <Dial cents={cents()} inTune={IN_TUNE}>
+        <Show
+          when={running()}
+          fallback={
+            <button class="listen" onClick={start}>
+              <Icon name="mic" size={30} />
+              <span>Tap to tune</span>
             </button>
-          )}
-        </For>
-      </div>
-
-      <div class="tuning-row">
-        {/* Native options are plain text, so the grey notes live in this label; the invisible select on top keeps the iOS picker. */}
-        <label class="tuning-select">
-          <span>
-            {p.tuning.name} <span class="muted">{p.tuning.notes.map(pitchClass).join(" ")}</span>
-          </span>
-          <select value={p.tuning.id} onChange={(e) => p.onTuning(e.currentTarget.value)} aria-label="Tuning">
-            <For each={p.tunings.filter((t) => t.instrument === p.tuning.instrument)}>
-              {(t) => (
-                <option value={t.id}>
-                  {t.name} · {t.notes.map(pitchClass).join(" ")}
-                </option>
-              )}
-            </For>
-          </select>
-        </label>
-        <button class="ghost" onClick={() => setEditing({ ...p.tuning, notes: [...p.tuning.notes] })}>
-          Edit
-        </button>
-      </div>
-
-      <div class="readout" aria-live="polite">
-        <div class="note">
-          <Show when={target() !== null} fallback="–">
-            {pitchClass(p.tuning.notes[target()!])}
-            <sub>{octave(p.tuning.notes[target()!])}</sub>
-          </Show>
-        </div>
-        <div class="cents">
-          <Show when={cents() !== null} fallback={running() ? "Play a string" : " "}>
-            {cents()! > 0 ? "+" : ""}
-            {cents()!.toFixed(1)} ¢
-          </Show>
-        </div>
-        <div class="hint">
-          <Show when={status() === "in"} fallback={cents() === null ? " " : cents()! < 0 ? "Tune up ↑" : "Tune down ↓"}>
-            In tune
-          </Show>
-        </div>
-      </div>
-
-      <div class="gauge" aria-hidden="true">
-        <div class="zone" />
-        <div class="ticks">
-          <span>-50</span>
-          <span>-25</span>
-          <span>0</span>
-          <span>+25</span>
-          <span>+50</span>
-        </div>
-        <Show when={cents() !== null}>
-          <div class="needle" style={{ left: `${50 + Math.max(-50, Math.min(50, cents()!))}%` }} />
+          }
+        >
+          <div class="note" aria-live="polite">
+            <Show when={target() !== null} fallback={<span class="note-idle">·</span>}>
+              {pitchClass(p.tuning.notes[target()!])}
+              <sub>{octave(p.tuning.notes[target()!])}</sub>
+            </Show>
+          </div>
+          <div class="cents">
+            <Show when={cents() !== null} fallback={" "}>
+              {cents()! > 0 ? "+" : ""}
+              {cents()!.toFixed(1)}
+              <span class="unit">¢</span>
+            </Show>
+          </div>
         </Show>
+      </Dial>
+
+      <div class="hint" classList={{ error: !!error() }}>
+        <Show when={status() === "in"}>
+          <Icon name="check" size={18} />
+        </Show>
+        {hint()}
       </div>
       <div class="heard">
-        <Show when={midi() !== null} fallback=" ">
-          Heard {noteName(midi()!)}
+        <Show when={midi() !== null} fallback={" "}>
+          Hearing {noteName(midi()!)}
         </Show>
       </div>
 
-      <div class="strings">
+      <div class="strings" role="group" aria-label="Strings">
         <For each={p.tuning.notes}>
           {(n, i) => (
             <button
-              classList={{ target: target() === i(), locked: locked() === i() }}
+              class="string"
+              classList={{ target: target() === i(), locked: locked() === i(), tuned: tuned().includes(i()) }}
               onClick={() => setLocked(locked() === i() ? null : i())}
               aria-pressed={locked() === i()}
+              aria-label={`${noteName(n)}${tuned().includes(i()) ? ", tuned" : ""}${locked() === i() ? ", locked" : ""}`}
             >
               {pitchClass(n)}
               <sub>{octave(n)}</sub>
+              <span class="string-badge" aria-hidden="true">
+                <Show when={locked() === i()} fallback={<Icon name="check" size={11} />}>
+                  <Icon name="lock" size={11} />
+                </Show>
+              </span>
             </button>
           )}
         </For>
       </div>
-      <div class="lock-hint">{locked() === null ? "Auto string detection · tap a string to lock it" : "Locked · tap again for auto"}</div>
+      <div class="lock-hint">{locked() === null ? "Auto string detection · tap a string to lock it" : "Locked · tap it again for auto"}</div>
 
-      <div class="calibration">
-        <span>A4</span>
-        <button class="ghost" onClick={() => p.onA4(Math.max(430, p.a4 - 1))} aria-label="Lower A4">
-          −
-        </button>
-        <span>{p.a4} Hz</span>
-        <button class="ghost" onClick={() => p.onA4(Math.min(450, p.a4 + 1))} aria-label="Raise A4">
-          +
-        </button>
-      </div>
-      <div class="version">
-        Fretly {VERSION}
-        <Show when={updateStatus()}> · {updateStatus()}</Show>
-        <Show when={updateReady()}>
-          {" "}
-          <button class="ghost" onClick={applyUpdate}>
-            Restart now
-          </button>
-        </Show>
-      </div>
-
-      <Show when={!running()}>
-        <div class="start">
-          <button class="primary" onClick={start}>
-            Start tuner
-          </button>
-          <Show when={error()}>
-            <p class="error">{error()}</p>
-          </Show>
-        </div>
+      <Show when={sheet()}>
+        <TuningSheet
+          tuning={p.tuning}
+          tunings={p.tunings}
+          a4={p.a4}
+          onTuning={p.onTuning}
+          onA4={p.onA4}
+          onSaveCustom={p.onSaveCustom}
+          onDeleteCustom={p.onDeleteCustom}
+          onClose={() => setSheet(false)}
+        />
       </Show>
-
-      <Show when={editing()}>
-        {(t) => (
-          <TuningEditor
-            tuning={t()}
-            onCancel={() => setEditing(null)}
-            onSave={(saved) => {
-              p.onSaveCustom(saved);
-              setEditing(null);
-            }}
-            onDelete={() => {
-              p.onDeleteCustom(t().id);
-              setEditing(null);
-            }}
-          />
-        )}
-      </Show>
-    </div>
-  );
-}
-
-function TuningEditor(p: { tuning: Tuning; onSave(t: Tuning): void; onCancel(): void; onDelete(): void }) {
-  const [notes, setNotes] = createSignal(p.tuning.notes);
-  const [name, setName] = createSignal(p.tuning.custom ? p.tuning.name : "");
-  const shift = (i: number, d: number) => setNotes((ns) => ns.map((n, j) => (j === i ? n + d : n)));
-  const fallbackName = () => notes().map(pitchClass).join(" ");
-
-  return (
-    <div class="sheet" role="dialog" aria-label="Custom tuning">
-      <h2>{p.tuning.custom ? "Edit tuning" : "New custom tuning"}</h2>
-      <input placeholder={fallbackName()} value={name()} onInput={(e) => setName(e.currentTarget.value)} />
-      <ul class="editor-strings">
-        <For each={notes()}>
-          {(n, i) => (
-            <li>
-              <button class="ghost" onClick={() => shift(i(), -1)} aria-label="Down a semitone">
-                −
-              </button>
-              <span>{noteName(n)}</span>
-              <button class="ghost" onClick={() => shift(i(), 1)} aria-label="Up a semitone">
-                +
-              </button>
-            </li>
-          )}
-        </For>
-      </ul>
-      <div class="sheet-actions">
-        <Show when={p.tuning.custom}>
-          <button class="danger" onClick={p.onDelete}>
-            Delete
-          </button>
-        </Show>
-        <button class="ghost" onClick={p.onCancel}>
-          Cancel
-        </button>
-        <button
-          class="primary"
-          onClick={() =>
-            p.onSave({
-              id: p.tuning.custom ? p.tuning.id : `custom-${Date.now()}`,
-              name: name().trim() || fallbackName(),
-              instrument: p.tuning.instrument,
-              notes: notes(),
-              custom: true,
-            })
-          }
-        >
-          Save
-        </button>
-      </div>
     </div>
   );
 }

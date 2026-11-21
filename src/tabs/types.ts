@@ -6,8 +6,11 @@ export interface SearchHit {
   source: Source;
   artist: string;
   title: string;
-  /** e.g. "Chords · ★4.8 (412)" */
+  /** Tab type or track, e.g. "Chords", "Rhythm Guitar". */
   label: string;
+  /** UG only: average rating out of 5 and number of votes. */
+  rating?: number;
+  votes?: number;
   /** UG only: vote-weighted rating used to rank versions. */
   score?: number;
   /** UG: tab page URL. Songsterr: "songId/trackIndex". */

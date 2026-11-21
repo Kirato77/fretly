@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { transposeChord, transposeLine } from "../src/tabs/chords";
+import { transposeChord, transposeLine, wrapSheet } from "../src/tabs/chords";
 import { compactTrack, parseSongsterrSearch, trackToDoc, trackToLines, type SsSong, type SsTrack } from "../src/tabs/songsterr";
 import { decodeEntities, parseUgSearch, parseUgTab } from "../src/tabs/ug";
 
@@ -37,13 +37,14 @@ describe("Ultimate Guitar", () => {
   it("keeps free chords/tabs, best rated first", () => {
     const hits = parseUgSearch(fixture("ug-search.html"), "guitar");
     expect(hits.length).toBeGreaterThan(3);
-    expect(hits.every((h) => /^(Chords|Tabs) /.test(h.label))).toBe(true);
+    expect(hits.every((h) => /^(Chords|Tabs)( · v\d+)?$/.test(h.label))).toBe(true);
     expect(hits.some((h) => h.ref.includes("/pro/"))).toBe(false);
     for (let i = 1; i < hits.length; i++) expect(hits[i - 1].score!).toBeGreaterThanOrEqual(hits[i].score!);
     expect(hits.some((h) => h.ref.endsWith("-10"))).toBe(false); // private
     expect(hits.some((h) => h.ref.endsWith("-9"))).toBe(false); // video
     expect(hits[0].ref.endsWith("-chords-4")).toBe(true); // 4.87★ with 412 votes beats 5★ with 3
-    expect(parseUgSearch(fixture("ug-search.html"), "bass").map((h) => h.label)).toEqual(["Bass Tabs · ★4.4 (80)"]);
+    expect(hits[0].label).toBe("Chords · v2");
+    expect(parseUgSearch(fixture("ug-search.html"), "bass").map((h) => [h.label, h.rating, h.votes])).toEqual([["Bass Tabs", 4.4, 80]]);
   });
 
   it("parses a chord sheet", () => {
@@ -65,7 +66,7 @@ describe("Songsterr", () => {
 
   it("lists guitar tracks only, not vocals or drums", () => {
     const hits = parseSongsterrSearch(songs, "guitar");
-    expect(hits[0]).toMatchObject({ artist: "Test Artist", title: "Test Song", ref: "2/3", label: "Tab · Rhythm Guitar" });
+    expect(hits[0]).toMatchObject({ artist: "Test Artist", title: "Test Song", ref: "2/3", label: "Rhythm Guitar" });
     expect(hits.map((h) => h.ref)).toEqual(["2/3", "2/2", "5/0"]);
     expect(hits.every((h) => !/vocal|drum/i.test(h.label))).toBe(true);
     expect(parseSongsterrSearch(songs, "bass").length).toBeGreaterThan(0);
@@ -93,5 +94,34 @@ describe("Songsterr", () => {
     const doc = trackToDoc({ artist: "Test Artist", title: "Test Song" }, track);
     expect(doc.info).toEqual(["Capo 2", "Tuning E A D G B E"]);
     expect(doc.kind).toBe("Rhythm Guitar");
+  });
+});
+
+describe("wrapSheet", () => {
+  const col = (line: string, word: string) => line.replace(/\[ch\](.*?)\[\/ch\]/g, "$1").indexOf(word);
+
+  it("wraps a chord line and its lyrics together, chords staying above their syllable", () => {
+    const chords = "[ch]Bm[/ch]                                     [ch]F#7[/ch]";
+    const lyric = "  On a dark desert highway, cool wind in my hair";
+    const out = wrapSheet([chords, lyric], 30);
+    expect(out.length).toBe(4);
+    expect(out.every((l) => l.replace(/\[ch\](.*?)\[\/ch\]/g, "$1").length <= 30)).toBe(true);
+    // F#7 sat at column 39 of the original line: on the wrapped line it sits over the same character
+    const [, , chords2, lyric2] = out;
+    expect(col(chords2, "F#7")).toBe(39 - lyric.indexOf(lyric2));
+    expect(lyric2[col(chords2, "F#7")]).toBe(lyric[39]);
+    expect(out[1]).toBe("  On a dark desert highway,");
+  });
+
+  it("keeps chord marks whole when wrapping a mixed line", () => {
+    const out = wrapSheet(["[ch]Bm[/ch] [ch]F#7[/ch] [ch]A[/ch] [ch]E[/ch] [ch]G[/ch] [ch]D[/ch] [ch]Em[/ch] [ch]F#7[/ch] x2"], 12);
+    expect(out.join("\n").match(/\[ch\]/g)!.length).toBe(8);
+    expect(out.every((l) => !/\[ch\][^[]*$/.test(l))).toBe(true);
+    expect(out.length).toBeGreaterThan(1);
+  });
+
+  it("leaves tab staffs and short lines alone", () => {
+    const staff = "e|-------0-----0-----0-----0-----3-----3-----3-----3-----|";
+    expect(wrapSheet([staff, "short"], 20)).toEqual([staff, "short"]);
   });
 });
