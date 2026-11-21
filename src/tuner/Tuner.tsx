@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { noteName, pitchClass } from "./notes";
 import { nearestString, Smoother, startMic, type Mic } from "./pitch";
-import { VERSION } from "../updater";
+import { applyUpdate, updateReady, updateStatus, VERSION } from "../updater";
 import { INSTRUMENTS, PRESETS, type Tuning } from "./tunings";
 
 const IN_TUNE = 2; // cents
@@ -187,7 +187,16 @@ export function Tuner(p: Props) {
           +
         </button>
       </div>
-      <div class="version">Fretly {VERSION}</div>
+      <div class="version">
+        Fretly {VERSION}
+        <Show when={updateStatus()}> · {updateStatus()}</Show>
+        <Show when={updateReady()}>
+          {" "}
+          <button class="ghost" onClick={applyUpdate}>
+            Restart now
+          </button>
+        </Show>
+      </div>
 
       <Show when={!running()}>
         <div class="start">

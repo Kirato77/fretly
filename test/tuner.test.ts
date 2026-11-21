@@ -37,6 +37,10 @@ describe("notes", () => {
   it("has the presets right", () => {
     const dadgad = PRESETS.find((t) => t.id === "guitar-dadgad")!;
     expect(dadgad.notes.map(noteName).join(" ")).toBe("D2 A2 D3 G3 A3 D4");
+    // Guitalele = guitar with a capo at the 5th fret
+    const guitalele = PRESETS.find((t) => t.id === "guitar-guitalele")!;
+    const standard = PRESETS.find((t) => t.id === "guitar-standard")!;
+    expect(guitalele.notes).toEqual(standard.notes.map((n) => n + 5));
   });
 });
 

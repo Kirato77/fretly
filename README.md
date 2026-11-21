@@ -14,7 +14,7 @@ A precise tuner and free tab finder for guitar, bass and ukulele. Built for my o
 **Tuner**
 - Sub-cent accuracy: McLeod pitch detection, checked by tests at ±0.5 cent from a 5-string bass low B (31 Hz) to ukulele high G
 - Automatic string detection, or tap a string to lock it
-- Guitar (Standard, Drop D, DADGAD, Open G/D/E, ½ step down, D Standard, Drop C), bass (4 and 5 strings, Drop D), ukulele (high G, low G, baritone)
+- Guitar (Standard, Drop D, DADGAD, Open G/D/E, ½ step down, D Standard, Drop C, guitalele), bass (4 and 5 strings, Drop D), ukulele (high G, low G, baritone)
 - Custom tunings, saved on the device
 - A4 calibration from 430 to 450 Hz
 - Raw microphone input (no echo cancellation, noise suppression or auto gain), needle steadied by a median and an exponential moving average

@@ -28,6 +28,7 @@ export const PRESETS: Tuning[] = [
   preset("guitar", "half-down", "Half step down", "Eb2 Ab2 Db3 Gb3 Bb3 Eb4"),
   preset("guitar", "d-standard", "D Standard", "D2 G2 C3 F3 A3 D4"),
   preset("guitar", "drop-c", "Drop C", "C2 G2 C3 F3 A3 D4"),
+  preset("guitar", "guitalele", "Guitalele", "A2 D3 G3 C4 E4 A4"),
   preset("bass", "standard", "Standard", "E1 A1 D2 G2"),
   preset("bass", "drop-d", "Drop D", "D1 A1 D2 G2"),
   preset("bass", "five", "5-string", "B0 E1 A1 D2 G2"),
