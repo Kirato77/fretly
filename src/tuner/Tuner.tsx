@@ -31,6 +31,7 @@ export function Tuner(p: Props) {
   const [sheet, setSheet] = createSignal(false);
   const [tuned, setTuned] = createSignal<number[]>([]);
   const [toning, setToning] = createSignal<number | null>(null); // string whose reference note is playing
+  const [plays, setPlays] = createSignal(0); // restarts the countdown ring on each tap
   const smoother = new Smoother();
   let mic: Mic | undefined;
   let starting = false;
@@ -45,6 +46,7 @@ export function Tuner(p: Props) {
     smoother.reset();
     setMidi(null);
     setToning(i);
+    setPlays(plays() + 1);
     clearTimeout(toneTimer);
     toneTimer = setTimeout(() => setToning(null), TONE_SECONDS * 1000);
   }
@@ -199,6 +201,29 @@ export function Tuner(p: Props) {
         </Show>
       </div>
 
+      {/* Slot kept even when nothing is locked, so the strings and the dial never jump. */}
+      <div class="hear-slot">
+        <Show when={locked() !== null}>
+          <button
+            class="hear-btn"
+            classList={{ on: toning() !== null }}
+            onClick={() => hear(locked()!)}
+            aria-label={`Hear ${noteName(p.tuning.notes[locked()!])}`}
+          >
+            {/* One ring per tap: a new element restarts its countdown animation. */}
+            <For each={toning() !== null ? [plays()] : []}>
+              {() => (
+                <svg class="hear-ring" viewBox="0 0 64 64" aria-hidden="true">
+                  <circle cx="32" cy="32" r="30" />
+                </svg>
+              )}
+            </For>
+            <Icon name="play" size={22} filled />
+          </button>
+          <span class="hear-label">Hear {noteName(p.tuning.notes[locked()!])}</span>
+        </Show>
+      </div>
+
       <div class="strings" role="group" aria-label="Strings">
         <For each={p.tuning.notes}>
           {(n, i) => (
@@ -220,18 +245,9 @@ export function Tuner(p: Props) {
           )}
         </For>
       </div>
-      <Show
-        when={locked() !== null}
-        fallback={<div class="lock-hint">Auto string detection · tap a string to lock it and hear it</div>}
-      >
-        <div class="lock-row">
-          <button class="hear" classList={{ on: toning() === locked() }} onClick={() => hear(locked()!)}>
-            <Icon name="play" size={14} filled />
-            Hear {noteName(p.tuning.notes[locked()!])}
-          </button>
-          <span class="lock-hint">Tap the string again for auto</span>
-        </div>
-      </Show>
+      <div class="lock-hint">
+        {locked() === null ? "Auto string detection · tap a string to lock it and hear it" : "Locked · tap the string again for auto"}
+      </div>
 
       <Show when={sheet()}>
         <TuningSheet

@@ -475,8 +475,7 @@ main {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  margin-top: auto;
-  padding-top: 24px;
+  margin-top: 14px;
 }
 
 .string {
@@ -540,33 +539,62 @@ main {
   color: var(--faint);
 }
 
-.lock-row {
+.hear-slot {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.lock-row .lock-hint {
-  margin-top: 0;
-}
-
-.hear {
-  display: inline-flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
+  height: 108px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.hear-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent);
-  font-size: 14px;
-  font-weight: 700;
+  animation: fade 0.2s ease;
 }
 
-.hear.on {
+.hear-btn.on {
   background: var(--accent);
   color: var(--on-accent);
+}
+
+/* Drains over the note's 3 s: how long it still rings. */
+.hear-ring {
+  position: absolute;
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  transform: rotate(-90deg);
+}
+
+.hear-ring circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 188.5;
+  animation: drain 3s linear forwards;
+}
+
+@keyframes drain {
+  to {
+    stroke-dashoffset: 188.5;
+  }
+}
+
+.hear-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 /* ---------- Sheets ---------- */
