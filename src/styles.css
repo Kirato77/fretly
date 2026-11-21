@@ -551,17 +551,25 @@ main {
   animation: fade 0.2s ease;
 }
 
+/* Fixed height whatever the instrument: the controls at the top never move under your finger.
+   Only the tuning list scrolls; instrument, custom tuning and calibration stay in reach. */
 .sheet {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 560px;
-  max-height: 88vh;
+  height: min(86vh, 760px);
   margin: 0 auto;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 6px 16px calc(18px + env(safe-area-inset-bottom));
   border-radius: 26px 26px 0 0;
   background: var(--surface);
   box-shadow: var(--shadow);
   animation: rise 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.sheet > * {
+  flex-shrink: 0;
 }
 
 .sheet-grip {
@@ -593,10 +601,21 @@ main {
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
 }
 
+.sheet > .tuning-list,
+.sheet > .editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .tuning-list {
   list-style: none;
   margin: 12px 0 8px;
-  padding: 0;
+  padding: 0 0 20px;
+  /* fade at the bottom edge: more tunings below */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
 
 .tuning-list li {
