@@ -305,10 +305,9 @@ export function Songs(p: Props) {
                       <span class="row-main">
                         <span class="row-title">{h.label}</span>
                       </span>
+                      {/* A word, not a second star: next to the rating star it read as a glitch. */}
                       <Show when={saved(h)}>
-                        <span class="saved-mark" title="In your favorites">
-                          <Icon name="star" size={14} filled />
-                        </span>
+                        <span class="saved-tag">Saved</span>
                       </Show>
                       <Show when={h.rating !== undefined}>
                         <span class="rating">

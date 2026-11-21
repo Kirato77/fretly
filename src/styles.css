@@ -926,14 +926,19 @@ main {
   color: var(--faint);
 }
 
-.row-icon.saved,
-.saved-mark {
+.row-icon.saved {
   color: var(--chord);
 }
 
-.saved-mark {
-  display: grid;
-  place-items: center;
+.saved-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .block h2 .text-btn {
