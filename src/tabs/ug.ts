@@ -70,7 +70,7 @@ export function parseUgTab(html: string): TabDoc {
       meta.tonality ? `Key ${meta.tonality}` : "",
     ].filter(Boolean),
     transposable: /chords/i.test(data.tab?.type ?? ""),
-    render: () => lines,
+    lines,
   };
 }
 

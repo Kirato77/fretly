@@ -556,6 +556,29 @@ main {
   padding: 10px 12px;
 }
 
+.tabview header > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tabview .star {
+  margin-left: auto;
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 10px;
+}
+
+.tabview .star.on {
+  background: transparent;
+  color: var(--chord);
+}
+
+.fav-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tabview .title {
   display: flex;
   flex-direction: column;
@@ -602,6 +625,8 @@ main {
   margin: 0;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   line-height: 1.35;
+  /* Tabs are character art: a coding font's ligatures would turn "-|" or "->" into single glyphs. */
+  font-variant-ligatures: none;
 }
 
 .tab-body pre > div {

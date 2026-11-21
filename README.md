@@ -24,6 +24,8 @@ A precise tuner and free tab finder for guitar, bass and ukulele. Built for my o
 - Ultimate Guitar versions ranked by a vote-weighted rating, so a 5★ tab with 3 votes does not beat a 4.8★ one with 2,500
 - Results filtered for the selected instrument
 - Chord transposition that keeps chords above the right syllable, text size, auto-scroll
+- Favorites saved in full: they open offline and keep their transposition
+- Recent searches
 
 **App**
 - Updates itself: every push to `main` is published as a web bundle that installed copies download and apply on next launch

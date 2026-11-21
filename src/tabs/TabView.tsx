@@ -1,24 +1,39 @@
 import { createEffect, createResource, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
 import { transposeLine } from "./chords";
-import { fetchSongsterrTab } from "./songsterr";
+import { addFavorite, favoriteId, findFavorite, loadFavoriteTab, removeFavorite, setFavoriteSemis } from "./favorites";
+import { fetchSongsterrTab, trackToLines } from "./songsterr";
 import { SOURCE_NAMES, type SearchHit } from "./types";
 import { fetchUgTab } from "./ug";
 
 const CHAR_RATIO = 0.6; // monospace glyph width / font size
 
 export function TabView(p: { hit: SearchHit; onBack(): void }) {
+  const id = favoriteId(p.hit);
+  // A favorite opens from its saved copy (offline, and even if the site removed it).
   const [doc] = createResource(
     () => p.hit,
-    (h) => (h.source === "ug" ? fetchUgTab(h.ref) : fetchSongsterrTab(h.ref)),
+    async (h) => (await loadFavoriteTab(id)) ?? (h.source === "ug" ? fetchUgTab(h.ref) : fetchSongsterrTab(h.ref)),
   );
-  const [semis, setSemis] = createSignal(0);
+  const [semis, setSemis] = createSignal(findFavorite(p.hit)?.semis ?? 0);
+  const isFavorite = () => !!findFavorite(p.hit);
+  createEffect(() => setFavoriteSemis(id, semis()));
+
+  const toggleFavorite = () => {
+    const d = doc();
+    if (isFavorite()) void removeFavorite(id);
+    else if (d) void addFavorite(p.hit, d, semis());
+  };
   const [size, setSize] = createSignal(14);
   const [speed, setSpeed] = createSignal(0); // px/s, 0 = autoscroll off
   const [width, setWidth] = createSignal(360);
   let body!: HTMLDivElement;
 
   const cols = () => Math.max(30, Math.floor(width() / (size() * CHAR_RATIO)));
-  const lines = () => doc()?.render(cols()).map((l) => transposeLine(l, semis())) ?? [];
+  const lines = () => {
+    const d = doc();
+    if (!d) return [];
+    return (d.track ? trackToLines(d.track, cols()) : (d.lines ?? [])).map((l) => transposeLine(l, semis()));
+  };
 
   onMount(() => {
     const ro = new ResizeObserver(() => setWidth(body.clientWidth - 24));
@@ -59,6 +74,16 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
             {SOURCE_NAMES[p.hit.source]}
           </span>
         </div>
+        <button
+          class="ghost star"
+          classList={{ on: isFavorite() }}
+          disabled={!isFavorite() && (doc.loading || !!doc.error)}
+          onClick={toggleFavorite}
+          aria-pressed={isFavorite()}
+          aria-label={isFavorite() ? "Remove from favorites" : "Add to favorites"}
+        >
+          {isFavorite() ? "★" : "☆"}
+        </button>
       </header>
 
       <div class="tools">

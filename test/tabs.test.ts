@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { transposeChord, transposeLine } from "../src/tabs/chords";
-import { parseSongsterrSearch, trackToDoc, trackToLines, type SsSong, type SsTrack } from "../src/tabs/songsterr";
+import { compactTrack, parseSongsterrSearch, trackToDoc, trackToLines, type SsSong, type SsTrack } from "../src/tabs/songsterr";
 import { decodeEntities, parseUgSearch, parseUgTab } from "../src/tabs/ug";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
@@ -52,7 +52,7 @@ describe("Ultimate Guitar", () => {
     expect(doc.artist).toBe("Test Artist");
     expect(doc.transposable).toBe(true);
     expect(doc.info).toEqual(["Capo 2", "Tuning E A D G B E", "Key F#m"]);
-    const lines = doc.render(80);
+    const lines = doc.lines!;
     expect(lines).toContain("[Intro]");
     expect(lines.join("\n")).toContain("[ch]F#m7[/ch]");
     expect(lines.join("\n")).not.toContain("[tab]");
@@ -81,6 +81,12 @@ describe("Songsterr", () => {
     expect(tabLines.every((l) => l.length <= 60)).toBe(true);
     // The chord name sits right above its fret
     expect(lines[1].indexOf("[ch]Em7")).toBe(lines[2].indexOf("3"));
+  });
+
+  it("renders a compacted track exactly like the full one, from plain JSON", () => {
+    const stored = JSON.parse(JSON.stringify(compactTrack(track))); // as saved and reloaded
+    expect(trackToLines(stored, 50)).toEqual(trackToLines(track, 50));
+    expect(JSON.stringify(stored).length).toBeLessThan(JSON.stringify(track).length);
   });
 
   it("builds the doc header", () => {

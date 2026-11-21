@@ -1,3 +1,5 @@
+import type { SsTrack } from "./songsterr";
+
 export type Source = "ug" | "songsterr";
 
 export interface SearchHit {
@@ -12,6 +14,7 @@ export interface SearchHit {
   ref: string;
 }
 
+/** Plain data (no functions), so a tab can be saved as a favorite and opened offline. */
 export interface TabDoc {
   title: string;
   artist: string;
@@ -21,8 +24,10 @@ export interface TabDoc {
   info: string[];
   /** Chord sheets can be transposed; note-by-note tabs cannot. */
   transposable: boolean;
-  /** Text lines with chords marked as [ch]X[/ch], wrapped to `cols` characters where possible. */
-  render(cols: number): string[];
+  /** UG: text lines with chords marked as [ch]X[/ch]. */
+  lines?: string[];
+  /** Songsterr: the track, laid out as ASCII tab for the screen width when shown (trackToLines). */
+  track?: SsTrack;
 }
 
 export const SOURCE_NAMES: Record<Source, string> = { ug: "Ultimate Guitar", songsterr: "Songsterr" };

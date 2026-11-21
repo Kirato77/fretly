@@ -11,3 +11,5 @@ export async function load<T>(key: string, fallback: T): Promise<T> {
 }
 
 export const save = (key: string, value: unknown) => Preferences.set({ key, value: JSON.stringify(value) });
+
+export const remove = (key: string) => Preferences.remove({ key });

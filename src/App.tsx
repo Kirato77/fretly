@@ -1,5 +1,6 @@
 import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { load, save } from "./storage";
+import { loadFavorites } from "./tabs/favorites";
 import { Search } from "./tabs/Search";
 import { TabView } from "./tabs/TabView";
 import type { SearchHit } from "./tabs/types";
@@ -21,6 +22,7 @@ export function App() {
     setCustoms(await load("customTunings", []));
     setTuningId(await load("tuningId", DEFAULT_TUNING.id));
     setA4(await load("a4", 440));
+    await loadFavorites();
     setLoaded(true);
   });
 

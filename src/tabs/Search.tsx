@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, on, onMount, Show } from "solid-js";
 import { load, save } from "../storage";
 import type { Instrument } from "../tuner/tunings";
+import { favorites } from "./favorites";
 import { searchSongsterr } from "./songsterr";
 import { SOURCE_NAMES, type SearchHit } from "./types";
 import { searchUg } from "./ug";
@@ -86,6 +87,22 @@ export function Search(p: { instrument: Instrument; onOpen(hit: SearchHit): void
           {loading() ? "…" : "Search"}
         </button>
       </form>
+
+      <Show when={!query() && favorites().length}>
+        <div class="song">
+          <h3>Favorites</h3>
+          <For each={favorites()}>
+            {(f) => (
+              <button class="hit" onClick={() => p.onOpen(f.hit)}>
+                <span class={`badge ${f.hit.source}`}>{f.hit.source === "ug" ? "UG" : "Songsterr"}</span>
+                <span class="fav-text">
+                  {f.hit.title} <span class="muted">— {f.hit.artist}</span>
+                </span>
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
 
       {/* History shows before the first search, or again once the search box is cleared. */}
       <Show when={(!hits().length || !query()) && !loading() && recent().length}>

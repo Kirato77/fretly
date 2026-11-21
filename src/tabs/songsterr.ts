@@ -145,6 +145,26 @@ export function trackToLines(track: SsTrack, cols: number): string[] {
   return out;
 }
 
+/** Keeps only what trackToLines reads: a big track JSON shrinks a lot before being saved as a favorite. */
+export function compactTrack(t: SsTrack): SsTrack {
+  return {
+    name: t.name,
+    instrument: t.instrument,
+    capo: t.capo,
+    tuning: t.tuning,
+    measures: t.measures.map((m) => ({
+      ...(m.marker && { marker: { text: m.marker.text } }),
+      voices: (m.voices[0] ? [m.voices[0]] : []).map((v) => ({
+        beats: v.beats.map((b) => ({
+          duration: b.duration,
+          ...(b.chord?.text && { chord: { text: b.chord.text } }),
+          notes: (b.notes ?? []).map(({ fret, string, tie, dead, rest }) => ({ fret, string, tie, dead, rest })),
+        })),
+      })),
+    })),
+  };
+}
+
 export function trackToDoc(song: { artist: string; title: string }, track: SsTrack): TabDoc {
   return {
     title: song.title,
@@ -156,7 +176,7 @@ export function trackToDoc(song: { artist: string; title: string }, track: SsTra
       `Tuning ${[...track.tuning].reverse().map(pitchClass).join(" ")}`,
     ].filter(Boolean),
     transposable: false,
-    render: (cols) => trackToLines(track, cols),
+    track: compactTrack(track),
   };
 }
 
