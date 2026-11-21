@@ -112,15 +112,21 @@ export function Tuner(p: Props) {
       </div>
 
       <div class="tuning-row">
-        <select value={p.tuning.id} onChange={(e) => p.onTuning(e.currentTarget.value)} aria-label="Tuning">
-          <For each={p.tunings.filter((t) => t.instrument === p.tuning.instrument)}>
-            {(t) => (
-              <option value={t.id}>
-                {t.name} · {t.notes.map(pitchClass).join(" ")}
-              </option>
-            )}
-          </For>
-        </select>
+        {/* Native options are plain text, so the grey notes live in this label; the invisible select on top keeps the iOS picker. */}
+        <label class="tuning-select">
+          <span>
+            {p.tuning.name} <span class="muted">{p.tuning.notes.map(pitchClass).join(" ")}</span>
+          </span>
+          <select value={p.tuning.id} onChange={(e) => p.onTuning(e.currentTarget.value)} aria-label="Tuning">
+            <For each={p.tunings.filter((t) => t.instrument === p.tuning.instrument)}>
+              {(t) => (
+                <option value={t.id}>
+                  {t.name} · {t.notes.map(pitchClass).join(" ")}
+                </option>
+              )}
+            </For>
+          </select>
+        </label>
         <button class="ghost" onClick={() => setEditing({ ...p.tuning, notes: [...p.tuning.notes] })}>
           Edit
         </button>
