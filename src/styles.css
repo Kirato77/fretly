@@ -447,6 +447,37 @@ main {
   flex: 1;
 }
 
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.recent-head h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.recent-head button {
+  font-size: 13px;
+  padding: 4px 10px;
+}
+
+.chip {
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
 .song h3 {
   font-size: 16px;
   margin: 18px 0 6px;

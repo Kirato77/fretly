@@ -1,9 +1,11 @@
-import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onMount, Show } from "solid-js";
+import { load, save } from "../storage";
 import type { Instrument } from "../tuner/tunings";
 import { searchSongsterr } from "./songsterr";
 import { SOURCE_NAMES, type SearchHit } from "./types";
 import { searchUg } from "./ug";
 
+const RECENT_MAX = 8;
 const PER_SONG = 5; // UG often has dozens of near-identical versions; the best rated are enough
 
 // "Grover Washington Jr." on UG is "Grover Washington Jr" on Songsterr: compare letters and digits only.
@@ -15,7 +17,23 @@ export function Search(p: { instrument: Instrument; onOpen(hit: SearchHit): void
   const [hits, setHits] = createSignal<SearchHit[]>([]);
   const [errors, setErrors] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [recent, setRecent] = createSignal<string[]>([]);
   let latest = 0;
+
+  onMount(async () => setRecent(await load("recentSearches", [])));
+
+  const keepRecent = (list: string[]) => {
+    setRecent(list);
+    void save("recentSearches", list);
+  };
+
+  /** Searches typed or tapped by the user (instrument re-runs do not touch the history). */
+  function search(q: string) {
+    if (!q) return;
+    setQuery(q);
+    keepRecent([q, ...recent().filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, RECENT_MAX));
+    void run(q);
+  }
 
   async function run(q: string) {
     if (!q) return;
@@ -52,7 +70,7 @@ export function Search(p: { instrument: Instrument; onOpen(hit: SearchHit): void
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void run(query().trim());
+          search(query().trim());
         }}
       >
         <input
@@ -68,6 +86,25 @@ export function Search(p: { instrument: Instrument; onOpen(hit: SearchHit): void
           {loading() ? "…" : "Search"}
         </button>
       </form>
+
+      {/* History shows before the first search, or again once the search box is cleared. */}
+      <Show when={(!hits().length || !query()) && !loading() && recent().length}>
+        <div class="recent">
+          <div class="recent-head">
+            <h3>Recent</h3>
+            <button class="ghost" onClick={() => keepRecent([])}>
+              Clear
+            </button>
+          </div>
+          <For each={recent()}>
+            {(r) => (
+              <button class="chip" onClick={() => search(r)}>
+                {r}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
 
       <For each={errors()}>{(e) => <p class="error">{e}</p>}</For>
       <Show when={!loading() && lastQuery() && !hits().length}>
