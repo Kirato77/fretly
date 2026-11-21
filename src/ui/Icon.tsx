@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 // Small stroke icon set (24×24, currentColor), drawn for Fretly.
 const PATHS = {
   tuner: "M9 3v6a3 3 0 0 0 6 0V3M12 12v9M8 21h8",
-  tabs: "M4 5h16M4 9.5h16M4 14h16M4 18.5h16M8.5 3v18M15.5 3v18",
+  songs: "M9 18V6l11-2.5v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM20 15.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9 9.5l11-2.5",
   search: "M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14ZM20 20l-4-4",
   back: "M15 5l-7 7 7 7",
   chevronDown: "M6 9l6 6 6-6",

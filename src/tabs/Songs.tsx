@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, For, on, onMount, Show } from "
 import { load, save } from "../storage";
 import { findTuning, type Instrument, type Tuning } from "../tuner/tunings";
 import { Icon } from "../ui/Icon";
-import { clearRecentTabs, favorites, isFavorite, recentTabs } from "./favorites";
+import { clearRecentTabs, favoriteId, favorites, isFavorite, recentTabs, searchLibrary } from "./favorites";
 import { searchSongsterr } from "./songsterr";
 import { SOURCE_NAMES, type SearchHit } from "./types";
 import { searchUg } from "./ug";
@@ -40,10 +40,18 @@ export function Songs(p: Props) {
   const [errors, setErrors] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [recentQueries, setRecentQueries] = createSignal<string[]>([]);
+  const [sortAZ, setSortAZ] = createSignal(false);
   let latest = 0;
   let input!: HTMLInputElement;
 
-  onMount(async () => setRecentQueries(await load("recentSearches", [])));
+  onMount(async () => {
+    setRecentQueries(await load("recentSearches", []));
+    setSortAZ(await load("favoritesSortAZ", false));
+  });
+  const toggleSort = (az: boolean) => {
+    setSortAZ(az);
+    void save("favoritesSortAZ", az);
+  };
 
   const keepRecentQueries = (list: string[]) => {
     setRecentQueries(list);
@@ -91,14 +99,17 @@ export function Songs(p: Props) {
   // Results are filtered per instrument: switching instrument in the tuner refreshes them.
   createEffect(on(() => p.instrument, () => run(lastQuery()), { defer: true }));
 
-  /** One card per song: best-rated UG songs first, then Songsterr-only songs. */
+  const saved = (h: SearchHit) => isFavorite(favoriteId(h));
+
+  /** One card per song: best-rated UG songs first, then Songsterr-only songs; a version you saved leads its card. */
   const groups = createMemo(() => {
     const map = new Map<string, SearchHit[]>();
     for (const h of hits()) map.set(songKey(h), [...(map.get(songKey(h)) ?? []), h]);
-    return [...map.values()].map((g) => [
-      ...g.filter((h) => h.source === "ug").slice(0, PER_SONG),
-      ...g.filter((h) => h.source !== "ug"),
-    ]);
+    return [...map.values()].map((g) => {
+      const shown = [...g.filter((h) => h.source === "ug").slice(0, PER_SONG), ...g.filter((h) => h.source !== "ug")];
+      const yours = g.filter((h) => saved(h) && !shown.includes(h)); // kept even if beyond the first 5
+      return [...g.filter((h) => saved(h) && shown.includes(h)), ...yours, ...shown.filter((h) => !saved(h))];
+    });
   });
 
   /** "Chords · Capo 2 · DADGAD": what to prepare before opening a tab. Standard tunings are not worth a mention. */
@@ -109,6 +120,10 @@ export function Songs(p: Props) {
     return [e.hit.artist, e.hit.label, capo, tuningText].filter(Boolean).join(" · ");
   };
   const recentOnly = () => recentTabs().filter((r) => !isFavorite(r.id));
+  const sortedFavorites = () =>
+    sortAZ() ? [...favorites()].sort((a, b) => a.hit.title.localeCompare(b.hit.title)) : favorites();
+  /** Live, offline matches from your own songs while typing: your version comes before anything online. */
+  const libraryMatches = createMemo(() => searchLibrary(query(), [...favorites(), ...recentOnly()]));
 
   return (
     <div class="search">
@@ -154,9 +169,19 @@ export function Songs(p: Props) {
               <section class="block">
                 <h2>
                   <Icon name="star" size={16} filled /> Favorites
+                  <Show when={favorites().length > 3}>
+                    <span class="sort" role="group" aria-label="Sort favorites">
+                      <button classList={{ on: !sortAZ() }} onClick={() => toggleSort(false)} aria-pressed={!sortAZ()}>
+                        Recent
+                      </button>
+                      <button classList={{ on: sortAZ() }} onClick={() => toggleSort(true)} aria-pressed={sortAZ()}>
+                        A–Z
+                      </button>
+                    </span>
+                  </Show>
                 </h2>
                 <div class="card">
-                  <For each={favorites()}>
+                  <For each={sortedFavorites()}>
                     {(f) => (
                       <button class="row" onClick={() => p.onOpen(f.hit)}>
                         <SourceBadge source={f.hit.source} />
@@ -197,7 +222,7 @@ export function Songs(p: Props) {
 
             <Show when={!favorites().length && !recentOnly().length}>
               <div class="empty">
-                <Icon name="tabs" size={36} />
+                <Icon name="songs" size={36} />
                 <p>Your songs will live here. Find a tab, then tap the star to keep it, even offline.</p>
                 <button class="primary" onClick={() => input.focus()}>
                   Find a song
@@ -207,13 +232,34 @@ export function Songs(p: Props) {
           </>
         }
       >
+        <Show when={libraryMatches().length}>
+          <section class="block">
+            <h2>In your library</h2>
+            <div class="card">
+              <For each={libraryMatches()}>
+                {(e) => (
+                  <button class="row" onClick={() => p.onOpen(e.hit)}>
+                    <span class="row-icon" classList={{ saved: isFavorite(e.id) }}>
+                      <Icon name={isFavorite(e.id) ? "star" : "clock"} size={16} filled={isFavorite(e.id)} />
+                    </span>
+                    <span class="row-main">
+                      <span class="row-title">{e.hit.title}</span>
+                      <span class="row-sub">{details(e)}</span>
+                    </span>
+                  </button>
+                )}
+              </For>
+            </div>
+          </section>
+        </Show>
+
         <p class="search-scope">Free {p.instrument} tabs from Ultimate Guitar and Songsterr</p>
         <For each={errors()}>{(e) => <p class="notice">{e}</p>}</For>
         <Show when={query() && !loading() && lastQuery() === query() && !hits().length && !errors().length}>
           <p class="notice">No free tabs found for “{lastQuery()}”.</p>
         </Show>
 
-        <Show when={!hits().length && !loading() && recentQueries().length}>
+        <Show when={!query() && !hits().length && !loading() && recentQueries().length}>
           <section class="block">
             <h2>
               <Icon name="clock" size={16} /> Recent searches
@@ -248,6 +294,11 @@ export function Songs(p: Props) {
                       <span class="row-main">
                         <span class="row-title">{h.label}</span>
                       </span>
+                      <Show when={saved(h)}>
+                        <span class="saved-mark" title="In your favorites">
+                          <Icon name="star" size={14} filled />
+                        </span>
+                      </Show>
                       <Show when={h.rating !== undefined}>
                         <span class="rating">
                           <Icon name="star" size={13} filled /> {h.rating!.toFixed(1)}

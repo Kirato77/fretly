@@ -10,7 +10,7 @@ const RECENT_MAX = 8;
 const tabKey = (id: string) => `favorite:${id}`;
 
 /** What the library shows about a tab without loading it. */
-interface Entry {
+export interface Entry {
   id: string;
   hit: SearchHit;
   openedAt?: number;
@@ -85,4 +85,18 @@ export function setFavoriteSemis(id: string, semis: number) {
   if (stored().some((f) => f.id === id && f.semis !== semis)) {
     void keep(stored().map((f) => (f.id === id ? { ...f, semis } : f)));
   }
+}
+
+/** Lowercase, no accents, punctuation as spaces: "Beyoncé — Halo!" → "beyonce halo". */
+const fold = (s: string) =>
+  s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** Library entries whose title or artist contain every word typed, in any order. */
+export function searchLibrary<T extends Entry>(query: string, entries: T[]): T[] {
+  const words = fold(query).split(" ").filter(Boolean);
+  if (!words.length) return [];
+  return entries.filter((e) => {
+    const text = fold(`${e.hit.title} ${e.hit.artist}`);
+    return words.every((w) => text.includes(w));
+  });
 }

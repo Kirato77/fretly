@@ -105,7 +105,7 @@ export function App() {
           onClick={() => (view() === "tabs" ? setOpenHit(null) : setView("tabs"))}
           aria-current={view() === "tabs" ? "page" : undefined}
         >
-          <Icon name="tabs" />
+          <Icon name="songs" />
           <span>Songs</span>
         </button>
       </nav>

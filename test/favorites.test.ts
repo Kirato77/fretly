@@ -74,6 +74,16 @@ describe("favorites", () => {
     expect(fav.recentTabs()).toEqual([]); // favorites never land in "recently opened"
   });
 
+  it("finds library entries by title or artist, any order, ignoring accents", () => {
+    const e = (title: string, artist: string) => ({ id: title, hit: { ...hit(title), title, artist } });
+    const lib = [e("Kashmir", "Led Zeppelin"), e("Halo", "Beyoncé"), e("Black Dog", "Led Zeppelin")];
+    expect(fav.searchLibrary("zeppelin kashmir", lib).map((x) => x.id)).toEqual(["Kashmir"]);
+    expect(fav.searchLibrary("beyonce", lib).map((x) => x.id)).toEqual(["Halo"]);
+    expect(fav.searchLibrary("LED", lib).map((x) => x.id)).toEqual(["Kashmir", "Black Dog"]);
+    expect(fav.searchLibrary("  ", lib)).toEqual([]);
+    expect(fav.searchLibrary("stairway", lib)).toEqual([]);
+  });
+
   it("removing deletes the saved tab too", async () => {
     await fav.addFavorite(hit("u1"), doc, 0);
     await fav.removeFavorite("ug:u1");
