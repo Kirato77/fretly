@@ -16,6 +16,7 @@ export function App() {
   const [a4, setA4] = createSignal(440);
   const [openHit, setOpenHit] = createSignal<SearchHit | null>(null);
   const [loaded, setLoaded] = createSignal(false);
+  const [toastHidden, setToastHidden] = createSignal(false);
 
   const tunings = () => [...PRESETS, ...customs()];
   const tuning = () => tunings().find((t) => t.id === tuningId()) ?? DEFAULT_TUNING;
@@ -43,7 +44,8 @@ export function App() {
   const deleteCustom = (id: string) => {
     const instrument = tuning().instrument;
     setCustoms((list) => list.filter((c) => c.id !== id));
-    setTuningId(PRESETS.find((t) => t.instrument === instrument)!.id);
+    // Only deleting the active tuning moves you elsewhere; any other custom tuning just disappears.
+    if (id === tuningId()) setTuningId(PRESETS.find((t) => t.instrument === instrument)!.id);
   };
 
   return (
@@ -69,9 +71,13 @@ export function App() {
           <Show when={openHit()}>{(hit) => <TabView hit={hit()} onBack={() => setOpenHit(null)} />}</Show>
         </section>
       </main>
-      <Show when={updateReady()}>
+      {/* "Later" keeps the controls underneath usable; the update still applies when the app is next left. */}
+      <Show when={updateReady() && !toastHidden()}>
         <div class="update-toast" role="status">
           <span>New version ready</span>
+          <button class="later" onClick={() => setToastHidden(true)}>
+            Later
+          </button>
           <button onClick={applyUpdate}>Restart</button>
         </div>
       </Show>
