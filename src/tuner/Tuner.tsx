@@ -114,7 +114,11 @@ export function Tuner(p: Props) {
       <div class="tuning-row">
         <select value={p.tuning.id} onChange={(e) => p.onTuning(e.currentTarget.value)} aria-label="Tuning">
           <For each={p.tunings.filter((t) => t.instrument === p.tuning.instrument)}>
-            {(t) => <option value={t.id}>{t.name}</option>}
+            {(t) => (
+              <option value={t.id}>
+                {t.name} · {t.notes.map(pitchClass).join(" ")}
+              </option>
+            )}
           </For>
         </select>
         <button class="ghost" onClick={() => setEditing({ ...p.tuning, notes: [...p.tuning.notes] })}>

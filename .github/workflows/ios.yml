@@ -54,8 +54,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view ipa >/dev/null 2>&1 || gh release create ipa --prerelease \
+          # Recreated each time so the tag points at the commit that was built; the download URL stays the same.
+          gh release delete ipa --yes --cleanup-tag 2>/dev/null || true
+          gh release create ipa fretly.ipa --prerelease --target "$GITHUB_SHA" \
             --title "iOS app (unsigned IPA)" \
             --notes "Unsigned build of Fretly $VITE_APP_VERSION. Install it with a sideloading tool; later web updates arrive automatically."
-          gh release upload ipa fretly.ipa --clobber
-          gh release edit ipa --notes "Unsigned build of Fretly $VITE_APP_VERSION. Install it with a sideloading tool; later web updates arrive automatically."
