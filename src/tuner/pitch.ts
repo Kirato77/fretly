@@ -80,18 +80,27 @@ export async function startMic(onPitch: (midi: number | null) => void, a4: () =>
     onPitch(freq === null ? null : freqToMidi(freq, a4()));
     raf = requestAnimationFrame(loop);
   });
+  // Getting the mic back takes a moment. If pause() or stop() comes in meanwhile, or another resume()
+  // starts, the stream that arrives is no longer wanted and must be closed, or the mic stays on.
+  let request = 0;
+  const release = (s: MediaStream) => s.getTracks().forEach((t) => t.stop());
   return {
     stop() {
+      request++;
       cancelAnimationFrame(raf);
-      stream.getTracks().forEach((t) => t.stop());
+      release(stream);
       void ctx.close();
     },
     pause() {
+      request++;
       source.disconnect();
-      stream.getTracks().forEach((t) => t.stop());
+      release(stream);
     },
     async resume() {
-      stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+      const mine = ++request;
+      const next = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+      if (mine !== request) return release(next);
+      stream = next;
       source = ctx.createMediaStreamSource(stream);
       source.connect(analyser);
     },
