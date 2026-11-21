@@ -91,7 +91,8 @@ export function App() {
           <button class="later" onClick={() => setToastHidden(true)}>
             Later
           </button>
-          <button onClick={applyUpdate}>Restart</button>
+          {/* Swaps the bundle and reloads in place: the app is not relaunched. */}
+          <button onClick={applyUpdate}>Refresh</button>
         </div>
       </Show>
       <nav class="tabbar">

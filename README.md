@@ -39,7 +39,7 @@ A precise tuner and an offline song library for guitar, bass and ukulele, with f
 2. Install it with a sideloading tool that signs apps with your own Apple ID, e.g. [SideStore](https://sidestore.io) or [LiveContainer](https://github.com/LiveContainer/LiveContainer) (set up with [iloader](https://github.com/nab138/iloader) from Linux, Windows or macOS).
 3. Open Fretly, tap the microphone in the middle of the dial and allow the microphone.
 
-After that, new versions arrive on their own ("New version ready" → Restart, or on the next launch). A new IPA is only needed when native code changes.
+After that, new versions arrive on their own ("New version ready" → Refresh applies it in place, or it applies the next time you leave the app). A new IPA is only needed when native code changes.
 
 ## Development
 
