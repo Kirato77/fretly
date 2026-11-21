@@ -11,6 +11,7 @@ const IN_TUNE = 2; // cents
 const CLOSE = 10;
 const SILENCE_MS = 400; // keep showing the last reading briefly while the string decays
 const TUNED_AFTER_MS = 600; // held in tune this long = string ticked as tuned
+const ROUTE_SWITCH_S = 0.15; // time for iOS to move audio back to the loudspeaker once the mic is released
 
 interface Props {
   tuning: Tuning;
@@ -40,16 +41,31 @@ export function Tuner(p: Props) {
   let deafUntil = 0;
   let toneTimer: ReturnType<typeof setTimeout> | undefined;
 
-  /** Plays the locked string's note. The tuner stops listening meanwhile: it would hear the note itself. */
+  /**
+   * Plays the locked string's note. While the mic is open, iOS treats audio as a call and sends it to the
+   * earpiece, very quietly: the mic is released for the note (the tuner would only hear the note itself
+   * anyway), the note starts once iOS is back on the loudspeaker, then the mic is taken back.
+   */
   function hear(i: number) {
-    playString(p.tuning.notes[i], p.a4);
-    deafUntil = performance.now() + TONE_SECONDS * 1000 + 150;
+    const handoff = mic ? ROUTE_SWITCH_S : 0;
+    mic?.pause();
+    playString(p.tuning.notes[i], p.a4, handoff);
+    deafUntil = performance.now() + (handoff + TONE_SECONDS) * 1000 + 150;
     smoother.reset();
     setMidi(null);
     setToning(p.tuning.notes[i]);
     setPlays(plays() + 1);
     clearTimeout(toneTimer);
-    toneTimer = setTimeout(() => setToning(null), TONE_SECONDS * 1000);
+    toneTimer = setTimeout(async () => {
+      setToning(null);
+      if (!mic) return; // the tuner was stopped meanwhile
+      try {
+        await mic.resume();
+      } catch {
+        stop();
+        setError("Tap to tune to listen again.");
+      }
+    }, (handoff + TONE_SECONDS) * 1000);
   }
   onCleanup(() => clearTimeout(toneTimer));
 

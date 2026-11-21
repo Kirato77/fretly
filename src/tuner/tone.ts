@@ -17,8 +17,8 @@ function wave(ctx: BaseAudioContext, rolloff: number) {
  * the phase, measured 1–3 cents flat). Two oscillators on the same frequency instead: a bright layer that dies
  * fast for the attack, a mellow one that rings. Only their volumes move, which never changes the pitch.
  */
-export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out: AudioNode) {
-  const t = ctx.currentTime;
+export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out: AudioNode, delay = 0) {
+  const t = ctx.currentTime + delay;
   const layer = (rolloff: number, peak: number, seconds: number) => {
     const osc = ctx.createOscillator();
     osc.setPeriodicWave(wave(ctx, rolloff));
@@ -37,9 +37,12 @@ export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out
 
 let ctx: AudioContext | undefined;
 
-/** Plays the reference note of a string on the speaker. Call from a tap: iOS only plays audio after a gesture. */
-export function playString(midi: number, a4: number) {
+/**
+ * Plays the reference note of a string, starting `delay` seconds from now. Call it from the tap itself:
+ * iOS only lets audio start inside a gesture, so the delay is scheduled here rather than with a timer.
+ */
+export function playString(midi: number, a4: number, delay = 0) {
   ctx ??= new AudioContext();
   void ctx.resume();
-  connectTone(ctx, midi, a4, ctx.destination);
+  connectTone(ctx, midi, a4, ctx.destination, delay);
 }

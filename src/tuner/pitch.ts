@@ -55,19 +55,23 @@ export const nearestString = (midi: number, notes: number[]) =>
 
 export interface Mic {
   stop(): void;
+  /** Releases the mic but keeps the audio engine running, so it can come back without a new tap. */
+  pause(): void;
+  resume(): Promise<void>;
 }
+
+// Voice processing (AGC, noise gate, echo filter) bends a guitar signal: keep it raw.
+const MIC_CONSTRAINTS = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
 
 /** Opens the mic and calls onPitch every animation frame with a fractional MIDI note (or null). */
 export async function startMic(onPitch: (midi: number | null) => void, a4: () => number): Promise<Mic> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    // Voice processing (AGC, noise gate, echo filter) bends a guitar signal: keep it raw.
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
+  let stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
   const ctx = new AudioContext();
   await ctx.resume();
   const analyser = ctx.createAnalyser();
   analyser.fftSize = WINDOW;
-  ctx.createMediaStreamSource(stream).connect(analyser);
+  let source = ctx.createMediaStreamSource(stream);
+  source.connect(analyser);
   const detect = createDetector(ctx.sampleRate);
   const buf = new Float32Array(WINDOW);
   let raf = requestAnimationFrame(function loop() {
@@ -81,6 +85,15 @@ export async function startMic(onPitch: (midi: number | null) => void, a4: () =>
       cancelAnimationFrame(raf);
       stream.getTracks().forEach((t) => t.stop());
       void ctx.close();
+    },
+    pause() {
+      source.disconnect();
+      stream.getTracks().forEach((t) => t.stop());
+    },
+    async resume() {
+      stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+      source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
     },
   };
 }
