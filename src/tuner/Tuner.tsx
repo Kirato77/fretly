@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
-import { noteName, pitchClass } from "./notes";
+import { noteName, octave, pitchClass } from "./notes";
 import { nearestString, Smoother, startMic, type Mic } from "./pitch";
 import { applyUpdate, updateReady, updateStatus, VERSION } from "../updater";
 import { INSTRUMENTS, PRESETS, type Tuning } from "./tunings";
@@ -126,7 +126,7 @@ export function Tuner(p: Props) {
         <div class="note">
           <Show when={target() !== null} fallback="–">
             {pitchClass(p.tuning.notes[target()!])}
-            <sub>{Math.floor(p.tuning.notes[target()!] / 12) - 1}</sub>
+            <sub>{octave(p.tuning.notes[target()!])}</sub>
           </Show>
         </div>
         <div class="cents">
@@ -170,7 +170,7 @@ export function Tuner(p: Props) {
               aria-pressed={locked() === i()}
             >
               {pitchClass(n)}
-              <sub>{Math.floor(n / 12) - 1}</sub>
+              <sub>{octave(n)}</sub>
             </button>
           )}
         </For>

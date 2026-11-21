@@ -7,7 +7,9 @@ export const freqToMidi = (freq: number, a4 = 440) => 69 + 12 * Math.log2(freq /
 
 export const pitchClass = (midi: number) => NOTE_NAMES[((Math.round(midi) % 12) + 12) % 12];
 
-export const noteName = (midi: number) => pitchClass(midi) + (Math.floor(Math.round(midi) / 12) - 1);
+export const octave = (midi: number) => Math.floor(Math.round(midi) / 12) - 1;
+
+export const noteName = (midi: number) => pitchClass(midi) + octave(midi);
 
 /** "E2", "F#3", "Bb1" → MIDI number. */
 export function parseNote(name: string): number {

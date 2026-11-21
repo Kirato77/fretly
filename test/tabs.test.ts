@@ -39,7 +39,7 @@ describe("Ultimate Guitar", () => {
     expect(hits.length).toBeGreaterThan(3);
     expect(hits.every((h) => /^(Chords|Tabs) /.test(h.label))).toBe(true);
     expect(hits.some((h) => h.ref.includes("/pro/"))).toBe(false);
-    for (let i = 1; i < hits.length; i++) expect(hits[i - 1].score).toBeGreaterThanOrEqual(hits[i].score);
+    for (let i = 1; i < hits.length; i++) expect(hits[i - 1].score!).toBeGreaterThanOrEqual(hits[i].score!);
     expect(hits.some((h) => h.ref.endsWith("-10"))).toBe(false); // private
     expect(hits.some((h) => h.ref.endsWith("-9"))).toBe(false); // video
     expect(hits[0].ref.endsWith("-chords-4")).toBe(true); // 4.87★ with 412 votes beats 5★ with 3

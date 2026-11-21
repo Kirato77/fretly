@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
 import { transposeLine } from "./chords";
 import { fetchSongsterrTab } from "./songsterr";
 import { SOURCE_NAMES, type SearchHit } from "./types";
@@ -23,24 +23,27 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
   onMount(() => {
     const ro = new ResizeObserver(() => setWidth(body.clientWidth - 24));
     ro.observe(body);
+    onCleanup(() => ro.disconnect());
+  });
+
+  // Auto-scroll: the frame loop only runs while a speed is set, and restarts when it changes.
+  createEffect(() => {
+    const pxPerSec = speed();
+    if (!pxPerSec) return;
     let raf = 0;
     let last = 0;
-    let pos = 0;
+    let pos = body.scrollTop; // scrollTop is rounded to pixels: keep the fraction here
     const tick = (t: number) => {
-      if (speed() && last) {
-        // scrollTop is rounded to pixels: accumulate the fraction so slow speeds still move.
+      if (last) {
         if (Math.abs(pos - body.scrollTop) > 2) pos = body.scrollTop; // user dragged
-        pos += (speed() * (t - last)) / 1000;
+        pos += (pxPerSec * (t - last)) / 1000;
         body.scrollTop = pos;
       }
       last = t;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    onCleanup(() => {
-      ro.disconnect();
-      cancelAnimationFrame(raf);
-    });
+    onCleanup(() => cancelAnimationFrame(raf));
   });
 
   return (

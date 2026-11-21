@@ -6,8 +6,8 @@ export interface SearchHit {
   title: string;
   /** e.g. "Chords · ★4.8 (412)" */
   label: string;
-  /** Higher is better within one source. */
-  score: number;
+  /** UG only: vote-weighted rating used to rank versions. */
+  score?: number;
   /** UG: tab page URL. Songsterr: "songId/trackIndex". */
   ref: string;
 }

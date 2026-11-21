@@ -21,11 +21,12 @@ export function isNewer(a: string, b: string) {
   return false;
 }
 
-/** Downloads a newer web bundle; the plugin switches to it on the next launch, or now via applyUpdate(). */
-export async function checkForUpdate() {
-  if (!Capacitor.isNativePlatform()) return;
-  // Must come first: without it the plugin assumes this bundle is broken and rolls back.
-  await CapacitorUpdater.notifyAppReady();
+let busy = false;
+
+/** Downloads a newer web bundle; the plugin switches to it when the app goes to background, or now via applyUpdate(). */
+async function checkForUpdate() {
+  if (busy || readyId()) return;
+  busy = true;
   try {
     setStatus("checking for updates…");
     const latest = await getJson<{ version: string; url: string }>(LATEST);
@@ -37,7 +38,18 @@ export async function checkForUpdate() {
     setStatus(`${latest.version} ready`);
   } catch (e) {
     setStatus(`update failed: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    busy = false;
   }
+}
+
+export async function startUpdates() {
+  if (!Capacitor.isNativePlatform()) return;
+  // Must come first: without it the plugin assumes this bundle is broken and rolls back.
+  await CapacitorUpdater.notifyAppReady();
+  void checkForUpdate();
+  // iOS keeps apps suspended for days instead of relaunching them: check again on every return.
+  document.addEventListener("visibilitychange", () => !document.hidden && void checkForUpdate());
 }
 
 /** Switches to the downloaded bundle right away (reloads the app). */

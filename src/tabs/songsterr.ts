@@ -58,8 +58,11 @@ export function fitsInstrument(t: SsTrackInfo, instrument: Instrument) {
   return t.instrumentId >= 24 && t.instrumentId <= 31 && strings >= 6;
 }
 
+/** "Noel Gallagher | Takamine FP460SC | Rhythm Guitar" → "Rhythm Guitar". */
+const trackName = (t: { name?: string; instrument: string }) => (t.name || t.instrument).split("|").pop()!.trim();
+
 export function parseSongsterrSearch(songs: SsSong[], instrument: Instrument): SearchHit[] {
-  return songs.flatMap((song, rank) =>
+  return songs.flatMap((song) =>
     song.tracks
       .map((t, index) => ({ t, index }))
       .filter(({ t }) => fitsInstrument(t, instrument))
@@ -69,9 +72,7 @@ export function parseSongsterrSearch(songs: SsSong[], instrument: Instrument): S
         source: "songsterr" as const,
         artist: song.artist,
         title: song.title,
-        // Track names look like "Noel Gallagher | Takamine FP460SC | Rhythm Guitar".
-        label: `Tab · ${(t.name || t.instrument).split("|").pop()!.trim()}`,
-        score: -rank,
+        label: `Tab · ${trackName(t)}`,
         ref: `${song.songId}/${index}`,
       })),
   );
@@ -149,7 +150,7 @@ export function trackToDoc(song: { artist: string; title: string }, track: SsTra
     title: song.title,
     artist: song.artist,
     source: "songsterr",
-    kind: (track.name || track.instrument).split("|").pop()!.trim(),
+    kind: trackName(track),
     info: [
       track.capo ? `Capo ${track.capo}` : "",
       `Tuning ${[...track.tuning].reverse().map(pitchClass).join(" ")}`,

@@ -30,6 +30,8 @@ jobs:
       - run: npm run build
       - run: npx cap sync ios
 
+      # CURRENT_PROJECT_VERSION (CFBundleVersion) changes with each commit: that is how the updater
+      # notices a new IPA and switches back to the web bundle shipped inside it.
       - name: Build app (no code signing)
         run: |
           xcodebuild build \
@@ -39,6 +41,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            CURRENT_PROJECT_VERSION="${VITE_APP_VERSION##*.}" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Package IPA
