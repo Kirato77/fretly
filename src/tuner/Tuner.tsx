@@ -27,12 +27,15 @@ export function Tuner(p: Props) {
   const [editing, setEditing] = createSignal<Tuning | null>(null);
   const smoother = new Smoother();
   let mic: Mic | undefined;
+  let starting = false;
   let lastHeard = 0;
 
   async function start() {
+    if (starting || mic) return; // a double tap would open a second mic that nothing stops
+    starting = true;
     setError("");
     try {
-      mic = await startMic(
+      const opened = await startMic(
         (m) => {
           const now = performance.now();
           if (m !== null) {
@@ -45,10 +48,18 @@ export function Tuner(p: Props) {
         },
         () => p.a4,
       );
-      setRunning(true);
+      // The tab or the app may have been left while the mic was opening.
+      if (!p.active || document.hidden) {
+        opened.stop();
+      } else {
+        mic = opened;
+        setRunning(true);
+      }
     } catch (e) {
       const denied = e instanceof DOMException && e.name === "NotAllowedError";
       setError(denied ? "Microphone access denied. Allow it in Settings › Fretly › Microphone." : String(e));
+    } finally {
+      starting = false;
     }
   }
 

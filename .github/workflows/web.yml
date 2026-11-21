@@ -38,6 +38,7 @@ jobs:
           NOTES: ${{ github.event.head_commit.message }}
         run: |
           tag="web-$VITE_APP_VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already published"; exit 0; fi
           (cd dist && zip -qr ../bundle.zip .)
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bundle.zip"
           printf '{"version":"%s","url":"%s"}\n' "$VITE_APP_VERSION" "$url" > latest.json

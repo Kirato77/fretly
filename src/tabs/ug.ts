@@ -29,7 +29,6 @@ export const decodeEntities = (s: string) =>
       : (ENTITIES[e.toLowerCase()] ?? all),
   );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readStore(html: string): any {
   const m = /class="js-store" data-content="([^"]*)"/.exec(html);
   if (!m) throw new Error("Ultimate Guitar page format changed");

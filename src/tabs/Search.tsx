@@ -15,13 +15,16 @@ export function Search(p: { instrument: Instrument; onOpen(hit: SearchHit): void
   const [hits, setHits] = createSignal<SearchHit[]>([]);
   const [errors, setErrors] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
+  let latest = 0;
 
   async function run(q: string) {
     if (!q) return;
+    const id = ++latest;
     setLoading(true);
     setLastQuery(q);
     const sources = [searchUg, searchSongsterr] as const;
     const results = await Promise.allSettled(sources.map((s) => s(q, p.instrument)));
+    if (id !== latest) return; // a newer search (e.g. instrument switched) owns the list now
     setHits(results.flatMap((r) => (r.status === "fulfilled" ? r.value : [])));
     setErrors(
       results.flatMap((r, i) =>

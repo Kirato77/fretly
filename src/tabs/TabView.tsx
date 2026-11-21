@@ -52,7 +52,8 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
         <div class="title">
           <strong>{p.hit.title}</strong>
           <span class="muted">
-            {p.hit.artist} · {SOURCE_NAMES[p.hit.source]}
+            {p.hit.artist} · <Show when={!doc.error && doc()?.kind}>{(kind) => `${kind()} · `}</Show>
+            {SOURCE_NAMES[p.hit.source]}
           </span>
         </div>
       </header>
