@@ -1,7 +1,7 @@
 import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { load, save } from "./storage";
 import { loadFavorites } from "./tabs/favorites";
-import { Search } from "./tabs/Search";
+import { Songs } from "./tabs/Songs";
 import { TabView } from "./tabs/TabView";
 import type { SearchHit } from "./tabs/types";
 import { Tuner } from "./tuner/Tuner";
@@ -64,11 +64,24 @@ export function App() {
           />
         </section>
         <section class="view" hidden={view() !== "tabs"}>
-          {/* Search stays mounted under the tab so results survive going back. */}
+          {/* The list stays mounted under an open tab so search results survive going back. */}
           <div hidden={!!openHit()}>
-            <Search instrument={tuning().instrument} onOpen={setOpenHit} />
+            <Songs instrument={tuning().instrument} tunings={tunings()} onOpen={setOpenHit} />
           </div>
-          <Show when={openHit()}>{(hit) => <TabView hit={hit()} onBack={() => setOpenHit(null)} />}</Show>
+          <Show when={openHit()}>
+            {(hit) => (
+              <TabView
+                hit={hit()}
+                tunings={tunings()}
+                current={tuning()}
+                onTune={(id) => {
+                  setTuningId(id);
+                  setView("tuner"); // the tab stays open: the Songs tab brings you back to it
+                }}
+                onBack={() => setOpenHit(null)}
+              />
+            )}
+          </Show>
         </section>
       </main>
       {/* "Later" keeps the controls underneath usable; the update still applies when the app is next left. */}
@@ -86,9 +99,14 @@ export function App() {
           <Icon name="tuner" />
           <span>Tuner</span>
         </button>
-        <button classList={{ on: view() === "tabs" }} onClick={() => setView("tabs")} aria-current={view() === "tabs" ? "page" : undefined}>
+        {/* Tapping Songs while already there goes back to the list (iOS convention). */}
+        <button
+          classList={{ on: view() === "tabs" }}
+          onClick={() => (view() === "tabs" ? setOpenHit(null) : setView("tabs"))}
+          aria-current={view() === "tabs" ? "page" : undefined}
+        >
           <Icon name="tabs" />
-          <span>Tabs</span>
+          <span>Songs</span>
         </button>
       </nav>
     </div>

@@ -1,4 +1,4 @@
-import type { Instrument } from "../tuner/tunings";
+import { normalizeTuning, type Instrument } from "../tuner/tunings";
 import { getText } from "./http";
 import type { SearchHit, TabDoc } from "./types";
 
@@ -74,6 +74,7 @@ export function parseUgTab(html: string): TabDoc {
       meta.tonality ? `Key ${meta.tonality}` : "",
     ].filter(Boolean),
     transposable: /chords/i.test(data.tab?.type ?? ""),
+    tuning: meta.tuning?.value ? normalizeTuning(meta.tuning.value) : undefined,
     lines,
   };
 }

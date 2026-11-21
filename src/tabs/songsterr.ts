@@ -205,16 +205,15 @@ export function compactTrack(t: SsTrack): SsTrack {
 }
 
 export function trackToDoc(song: { artist: string; title: string }, track: SsTrack): TabDoc {
+  const tuning = [...track.tuning].reverse().map(pitchClass).join(" "); // stored high to low
   return {
     title: song.title,
     artist: song.artist,
     source: "songsterr",
     kind: trackName(track),
-    info: [
-      track.capo ? `Capo ${track.capo}` : "",
-      `Tuning ${[...track.tuning].reverse().map(pitchClass).join(" ")}`,
-    ].filter(Boolean),
+    info: [track.capo ? `Capo ${track.capo}` : "", `Tuning ${tuning}`].filter(Boolean),
     transposable: false,
+    tuning,
     track: compactTrack(track),
   };
 }

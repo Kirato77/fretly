@@ -53,6 +53,7 @@ describe("Ultimate Guitar", () => {
     expect(doc.artist).toBe("Test Artist");
     expect(doc.transposable).toBe(true);
     expect(doc.info).toEqual(["Capo 2", "Tuning E A D G B E", "Key F#m"]);
+    expect(doc.tuning).toBe("E A D G B E");
     const lines = doc.lines!;
     expect(lines).toContain("[Intro]");
     expect(lines.join("\n")).toContain("[ch]F#m7[/ch]");
@@ -118,6 +119,7 @@ describe("Songsterr", () => {
   it("builds the doc header", () => {
     const doc = trackToDoc({ artist: "Test Artist", title: "Test Song" }, track);
     expect(doc.info).toEqual(["Capo 2", "Tuning E A D G B E"]);
+    expect(doc.tuning).toBe("E A D G B E"); // Songsterr lists strings high to low: reversed
     expect(doc.kind).toBe("Rhythm Guitar");
   });
 });
@@ -168,6 +170,14 @@ describe("wrapSheet", () => {
     expect(rows[0][0].endsWith("|")).toBe(true); // cut right after a bar
     // Nothing lost: gluing the pieces back gives the original strings
     for (let s = 0; s < 3; s++) expect("e|B|G|".slice(s * 2, s * 2 + 2) + rows.map((r) => r[s].slice(2)).join("")).toBe(block[s]);
+  });
+
+  it("does not leave a row with only the closing bar", () => {
+    // 2 + 28 + 1: the cut at 30 columns leaves just the final "|" behind
+    const block = ["D|" + "--2---0---5-".repeat(3).slice(0, 28) + "|", "A|" + "-".repeat(28) + "|"];
+    const out = wrapSheet(block, 30);
+    expect(out.some((l) => /^[DA]\|\|?$/.test(l))).toBe(false);
+    expect(out.filter((l) => l).length).toBe(2);
   });
 
   it("never splits a two-digit fret when there is no bar to cut at", () => {

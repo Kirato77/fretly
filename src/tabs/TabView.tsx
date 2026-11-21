@@ -1,9 +1,10 @@
-import { createEffect, createResource, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, Index, on, onCleanup, onMount, Show } from "solid-js";
 import { load, save } from "../storage";
+import { findTuning, INSTRUMENTS, type Tuning } from "../tuner/tunings";
 import { Icon } from "../ui/Icon";
 import { transposeLine, wrapSheet } from "./chords";
-import { addFavorite, favoriteId, findFavorite, loadFavoriteTab, removeFavorite, setFavoriteSemis } from "./favorites";
-import { SourceBadge } from "./Search";
+import { addFavorite, favoriteId, findFavorite, loadFavoriteTab, noteOpened, removeFavorite, setFavoriteSemis } from "./favorites";
+import { SourceBadge } from "./Songs";
 import { fetchSongsterrTab, trackToLines } from "./songsterr";
 import type { SearchHit } from "./types";
 import { fetchUgTab } from "./ug";
@@ -11,7 +12,16 @@ import { fetchUgTab } from "./ug";
 const CHAR_RATIO = 0.6; // monospace glyph width / font size
 const SPEEDS = [10, 15, 20, 30, 40, 55, 75, 100]; // auto-scroll, px/s
 
-export function TabView(p: { hit: SearchHit; onBack(): void }) {
+interface Props {
+  hit: SearchHit;
+  /** Tunings the tuner knows, and the one it is on: to offer "Tune to DADGAD" when the tab needs it. */
+  tunings: Tuning[];
+  current: Tuning;
+  onTune(id: string): void;
+  onBack(): void;
+}
+
+export function TabView(p: Props) {
   const id = favoriteId(p.hit);
   // A favorite opens from its saved copy (offline, and even if the site removed it).
   const [doc] = createResource(
@@ -21,6 +31,14 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
   const [semis, setSemis] = createSignal(findFavorite(p.hit)?.semis ?? 0);
   const isFavorite = () => !!findFavorite(p.hit);
   createEffect(() => setFavoriteSemis(id, semis()));
+  // Reading a resource in error throws in Solid: check the error first.
+  createEffect(on(() => (doc.error ? undefined : doc()), (d) => d && noteOpened(p.hit, d)));
+
+  /** The tuner tuning this tab is written for, when the tuner is not already on it. */
+  const tuneTo = () => {
+    const t = !doc.error && doc()?.tuning ? findTuning(doc()!.tuning!, p.tunings) : undefined;
+    return t && t.id !== p.current.id ? t : undefined;
+  };
 
   const toggleFavorite = () => {
     const d = doc();
@@ -113,9 +131,18 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
       <div class="tab-body" ref={body}>
         <Show when={!doc.loading} fallback={<div class="tab-loading">Loading the tab…</div>}>
           <Show when={!doc.error} fallback={<p class="notice">This tab could not be loaded. Check the connection and try again.</p>}>
-            <Show when={doc()?.info.length}>
+            <Show when={doc()?.info.length || tuneTo()}>
               <div class="info-chips">
                 <For each={doc()!.info}>{(i) => <span class="info-chip">{i}</span>}</For>
+                <Show when={tuneTo()}>
+                  {(t) => (
+                    <button class="tune-chip" onClick={() => p.onTune(t().id)}>
+                      <Icon name="tuner" size={15} />
+                      Tune to {t().instrument === p.current.instrument ? "" : `${INSTRUMENTS.find((i) => i.id === t().instrument)!.label} · `}
+                      {t().name}
+                    </button>
+                  )}
+                </Show>
               </div>
             </Show>
             <pre style={{ "font-size": `${size()}px` }}>

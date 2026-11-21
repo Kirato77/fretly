@@ -27,6 +27,8 @@ export interface TabDoc {
   info: string[];
   /** Chord sheets can be transposed; note-by-note tabs cannot. */
   transposable: boolean;
+  /** Tuning as pitch classes, low to high string, e.g. "D A D G A D" (see normalizeTuning). */
+  tuning?: string;
   /** UG: text lines with chords marked as [ch]X[/ch]. */
   lines?: string[];
   /** Songsterr: the track, laid out as ASCII tab for the screen width when shown (trackToLines). */

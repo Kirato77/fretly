@@ -20,13 +20,15 @@ A precise tuner and free tab finder for guitar, bass and ukulele. Built for my o
 - A4 calibration from 430 to 450 Hz
 - Raw microphone input (no echo cancellation, noise suppression or auto gain), needle steadied by a median and an exponential moving average
 
-**Tabs**
-- One search across Ultimate Guitar and Songsterr, grouped by song
+**Songs**
+- Your library first: favorites (most recently played on top) and recently opened tabs, with capo and tuning on each line
+- One search across Ultimate Guitar and Songsterr, grouped by song; Cancel goes back to the library
 - Ultimate Guitar versions ranked by a vote-weighted rating, so a 5★ tab with 3 votes does not beat a 4.8★ one with 2,500
 - Results filtered for the selected instrument
 - Chord sheets fit the screen: lyrics wrap with their chords, which stay above the right syllable
 - Transposition, remembered text size, auto-scroll with speed control in a thumb-reach toolbar
 - Favorites saved in full: they open offline and keep their transposition
+- "Tune to DADGAD": when a tab needs another tuning, one tap sets the tuner, and the Songs tab brings you back to the song
 - Recent searches
 
 **App**

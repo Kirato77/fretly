@@ -50,6 +50,30 @@ describe("favorites", () => {
     expect(fav.favorites().map((f) => f.hit.label)).toEqual(["Chords", "Rhythm Guitar"]);
   });
 
+  it("keeps a recently opened list of tabs that are not favorites", async () => {
+    for (let i = 0; i < 10; i++) fav.noteOpened(hit(`r${i}`), doc);
+    fav.noteOpened(hit("r3"), doc); // opened again: back to the top, no duplicate
+    await new Promise((r) => setTimeout(r));
+    await fav.loadFavorites(); // survives a restart
+    expect(fav.recentTabs().map((r) => r.id)).toEqual(["ug:r3", "ug:r9", "ug:r8", "ug:r7", "ug:r6", "ug:r5", "ug:r4", "ug:r2"]);
+  });
+
+  it("lists favorites by last opened, and opening refreshes what the list shows", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    await fav.addFavorite(hit("a"), doc, 0);
+    vi.setSystemTime(2000);
+    await fav.addFavorite(hit("b"), doc, 0);
+    vi.setSystemTime(3000);
+    fav.noteOpened(hit("a"), { ...doc, info: ["Capo 3"], tuning: "D A D G A D" });
+    vi.useRealTimers();
+    expect(fav.favorites().map((f) => [f.id, f.info, f.tuning])).toEqual([
+      ["ug:a", ["Capo 3"], "D A D G A D"],
+      ["ug:b", [], undefined],
+    ]);
+    expect(fav.recentTabs()).toEqual([]); // favorites never land in "recently opened"
+  });
+
   it("removing deletes the saved tab too", async () => {
     await fav.addFavorite(hit("u1"), doc, 0);
     await fav.removeFavorite("ug:u1");

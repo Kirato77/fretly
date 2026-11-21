@@ -134,6 +134,9 @@ function wrapStaff(block: string[], cols: number): string[] {
       else
         while (end > start + 1 && block.some((l) => digitAt(l, end - 1) && digitAt(l, end))) end--;
     }
+    // A leftover of just the closing bar or a few dashes ("D||") carries no note: drop it.
+    const leftover = start > label && end - start <= 3 && block.every((l) => /^[-|]*$/.test(l.slice(start, end)));
+    if (leftover) break;
     if (out.length) out.push("");
     for (const l of block) out.push(l.slice(0, label) + l.slice(start, end));
     start = end;

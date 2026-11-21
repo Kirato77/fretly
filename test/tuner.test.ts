@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { freqToMidi, midiToFreq, noteName, parseNote } from "../src/tuner/notes";
 import { createDetector, nearestString, Smoother, WINDOW } from "../src/tuner/pitch";
-import { PRESETS } from "../src/tuner/tunings";
+import { findTuning, normalizeTuning, PRESETS } from "../src/tuner/tunings";
 
 const SR = 48000;
 
@@ -100,5 +100,19 @@ describe("smoother and string pick", () => {
 
   it("picks the nearest string", () => {
     expect(nearestString(45.3, [40, 45, 50, 55, 59, 64])).toBe(1);
+  });
+});
+
+describe("tab tunings", () => {
+  it("normalises the way tab sites write tunings", () => {
+    expect(normalizeTuning("Eb Ab Db Gb Bb Eb")).toBe("D# G# C# F# A# D#");
+    expect(normalizeTuning(" e a d g b e ")).toBe("E A D G B E");
+  });
+
+  it("finds the tuner tuning a tab is written for", () => {
+    expect(findTuning(normalizeTuning("D A D G A D"), PRESETS)?.id).toBe("guitar-dadgad");
+    expect(findTuning(normalizeTuning("Eb Ab Db Gb Bb Eb"), PRESETS)?.id).toBe("guitar-half-down");
+    expect(findTuning("G C E A", PRESETS)?.id).toBe("ukulele-standard");
+    expect(findTuning("C G D G B D", PRESETS)).toBeUndefined();
   });
 });
