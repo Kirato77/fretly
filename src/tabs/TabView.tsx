@@ -1,9 +1,18 @@
 import { createEffect, createResource, createSignal, For, Index, on, onCleanup, onMount, Show } from "solid-js";
 import { load, save } from "../storage";
-import { findTuning, INSTRUMENTS, type Tuning } from "../tuner/tunings";
+import { INSTRUMENTS, tuningToOffer, type Tuning } from "../tuner/tunings";
 import { Icon } from "../ui/Icon";
 import { transposeLine, wrapSheet } from "./chords";
-import { addFavorite, favoriteId, findFavorite, loadFavoriteTab, noteOpened, removeFavorite, setFavoriteSemis } from "./favorites";
+import {
+  addFavorite,
+  docTuning,
+  favoriteId,
+  findFavorite,
+  loadFavoriteTab,
+  noteOpened,
+  removeFavorite,
+  setFavoriteSemis,
+} from "./favorites";
 import { SourceBadge } from "./Songs";
 import { fetchSongsterrTab, trackToLines } from "./songsterr";
 import type { SearchHit } from "./types";
@@ -34,11 +43,8 @@ export function TabView(p: Props) {
   // Reading a resource in error throws in Solid: check the error first.
   createEffect(on(() => (doc.error ? undefined : doc()), (d) => d && noteOpened(p.hit, d)));
 
-  /** The tuner tuning this tab is written for, when the tuner is not already on it. */
-  const tuneTo = () => {
-    const t = !doc.error && doc()?.tuning ? findTuning(doc()!.tuning!, p.tunings) : undefined;
-    return t && t.id !== p.current.id ? t : undefined;
-  };
+  /** The tuner tuning this tab is written for, when the tuner is not already on those notes. */
+  const tuneTo = () => (doc.error || !doc() ? undefined : tuningToOffer(docTuning(doc()!), p.current, p.tunings));
 
   const toggleFavorite = () => {
     const d = doc();

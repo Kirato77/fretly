@@ -84,6 +84,13 @@ describe("favorites", () => {
     expect(fav.searchLibrary("stairway", lib)).toEqual([]);
   });
 
+  it("reads the tuning of tabs saved before it had its own field", async () => {
+    const old = { ...doc, info: ["Capo 2", "Tuning Eb Ab Db Gb Bb Eb"] }; // no `tuning`
+    expect(fav.docTuning(old)).toBe("D# G# C# F# A# D#");
+    await fav.addFavorite(hit("old"), old, 0);
+    expect(fav.favorites()[0].tuning).toBe("D# G# C# F# A# D#");
+  });
+
   it("removing deletes the saved tab too", async () => {
     await fav.addFavorite(hit("u1"), doc, 0);
     await fav.removeFavorite("ug:u1");

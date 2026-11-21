@@ -62,3 +62,12 @@ export const tuningKey = (t: Tuning) => t.notes.map(pitchClass).join(" ");
 
 /** The tuner tuning whose notes match a tab's tuning (pitch classes, low to high), if any. */
 export const findTuning = (key: string, tunings: Tuning[]) => tunings.find((t) => tuningKey(t) === key);
+
+/**
+ * The tuning to offer for a tab, or undefined when the tuner already plays those notes. Tabs give no
+ * octave, so a low-G ukulele (or a custom tuning) matching the tab must not be pushed to another one.
+ */
+export function tuningToOffer(tabTuning: string | undefined, current: Tuning, tunings: Tuning[]) {
+  if (!tabTuning || tuningKey(current) === tabTuning) return undefined;
+  return findTuning(tabTuning, tunings);
+}

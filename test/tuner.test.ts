@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { freqToMidi, midiToFreq, noteName, parseNote } from "../src/tuner/notes";
 import { createDetector, nearestString, Smoother, WINDOW } from "../src/tuner/pitch";
-import { findTuning, normalizeTuning, PRESETS } from "../src/tuner/tunings";
+import { findTuning, normalizeTuning, PRESETS, tuningToOffer } from "../src/tuner/tunings";
 
 const SR = 48000;
 
@@ -114,5 +114,19 @@ describe("tab tunings", () => {
     expect(findTuning(normalizeTuning("Eb Ab Db Gb Bb Eb"), PRESETS)?.id).toBe("guitar-half-down");
     expect(findTuning("G C E A", PRESETS)?.id).toBe("ukulele-standard");
     expect(findTuning("C G D G B D", PRESETS)).toBeUndefined();
+  });
+});
+
+describe("tuning to offer for a tab", () => {
+  const byId = (id: string) => PRESETS.find((t) => t.id === id)!;
+
+  it("offers the tab's tuning when the tuner is elsewhere", () => {
+    expect(tuningToOffer("D A D G A D", byId("guitar-standard"), PRESETS)?.id).toBe("guitar-dadgad");
+  });
+
+  it("offers nothing when the tuner already plays those notes, whatever the octave", () => {
+    expect(tuningToOffer("G C E A", byId("ukulele-low-g"), PRESETS)).toBeUndefined(); // not pushed to high G
+    expect(tuningToOffer("E A D G B E", byId("guitar-standard"), PRESETS)).toBeUndefined();
+    expect(tuningToOffer(undefined, byId("guitar-standard"), PRESETS)).toBeUndefined();
   });
 });

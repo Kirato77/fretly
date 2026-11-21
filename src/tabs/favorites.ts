@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { load, remove, save } from "../storage";
+import { normalizeTuning } from "../tuner/tunings";
 import type { SearchHit, TabDoc } from "./types";
 
 // The library: favorites (kept in full, offline) and recently opened tabs (just the link).
@@ -53,7 +54,13 @@ export async function loadFavorites() {
   setRecentTabs(await load<Entry[]>(RECENT, []));
 }
 
-const describe = (doc: TabDoc) => ({ info: doc.info, tuning: doc.tuning });
+/** A tab's tuning; copies saved before 0.1.1795294828 only have it as text ("Tuning E A D G B E"). */
+export const docTuning = (doc: TabDoc) => {
+  const text = doc.info.find((i) => i.startsWith("Tuning "));
+  return doc.tuning ?? (text ? normalizeTuning(text.slice("Tuning ".length)) : undefined);
+};
+
+const describe = (doc: TabDoc) => ({ info: doc.info, tuning: docTuning(doc) });
 
 export async function addFavorite(hit: SearchHit, doc: TabDoc, semis: number) {
   const id = favoriteId(hit);
