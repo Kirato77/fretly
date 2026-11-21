@@ -540,6 +540,35 @@ main {
   color: var(--faint);
 }
 
+.lock-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.lock-row .lock-hint {
+  margin-top: 0;
+}
+
+.hear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hear.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
 /* ---------- Sheets ---------- */
 .sheet-backdrop {
   position: fixed;

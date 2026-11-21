@@ -16,6 +16,7 @@ A precise tuner and an offline song library for guitar, bass and ukulele, with f
 - Sub-cent accuracy: McLeod pitch detection, checked by tests at ±0.5 cent from a 5-string bass low B (31 Hz) to ukulele high G
 - Arc meter readable from a distance: the whole screen tints green when the string is in tune
 - Automatic string detection, or tap a string to lock it; strings get ticked as you tune them
+- Reference note: lock a string and tap "Hear" to play it (plucked-string sound at the exact pitch, A4 setting included)
 - Guitar (Standard, Drop D, DADGAD, Open G/D/E, ½ step down, D Standard, Drop C, guitalele), bass (4 and 5 strings, Drop D), ukulele (high G, low G, baritone)
 - Custom tunings and A4 calibration (430–450 Hz), in a sheet that stays out of the way
 - Raw microphone input (no echo cancellation, noise suppression or auto gain), reading steadied by a median and an exponential moving average

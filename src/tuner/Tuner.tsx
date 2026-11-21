@@ -3,6 +3,7 @@ import { Icon } from "../ui/Icon";
 import { Dial } from "./Dial";
 import { noteName, octave, pitchClass } from "./notes";
 import { nearestString, Smoother, startMic, type Mic } from "./pitch";
+import { playString, TONE_SECONDS } from "./tone";
 import { TuningSheet } from "./TuningSheet";
 import { INSTRUMENTS, type Tuning } from "./tunings";
 
@@ -29,10 +30,25 @@ export function Tuner(p: Props) {
   const [error, setError] = createSignal("");
   const [sheet, setSheet] = createSignal(false);
   const [tuned, setTuned] = createSignal<number[]>([]);
+  const [toning, setToning] = createSignal<number | null>(null); // string whose reference note is playing
   const smoother = new Smoother();
   let mic: Mic | undefined;
   let starting = false;
   let lastHeard = 0;
+  let deafUntil = 0;
+  let toneTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Plays the locked string's note. The tuner stops listening meanwhile: it would hear the note itself. */
+  function hear(i: number) {
+    playString(p.tuning.notes[i], p.a4);
+    deafUntil = performance.now() + TONE_SECONDS * 1000 + 150;
+    smoother.reset();
+    setMidi(null);
+    setToning(i);
+    clearTimeout(toneTimer);
+    toneTimer = setTimeout(() => setToning(null), TONE_SECONDS * 1000);
+  }
+  onCleanup(() => clearTimeout(toneTimer));
 
   async function start() {
     if (starting || mic) return; // a double tap would open a second mic that nothing stops
@@ -42,6 +58,7 @@ export function Tuner(p: Props) {
       const opened = await startMic(
         (m) => {
           const now = performance.now();
+          if (now < deafUntil) return; // our own reference note is playing
           if (m !== null) {
             lastHeard = now;
             setMidi(smoother.push(m));
@@ -126,6 +143,7 @@ export function Tuner(p: Props) {
   const hint = () => {
     const c = cents();
     if (error()) return error();
+    if (toning() !== null) return `Playing ${noteName(p.tuning.notes[toning()!])}…`;
     if (!running()) return "Tap to tune, then play a string";
     if (c === null) return "Play a string";
     if (status() === "in") return "In tune";
@@ -202,7 +220,18 @@ export function Tuner(p: Props) {
           )}
         </For>
       </div>
-      <div class="lock-hint">{locked() === null ? "Auto string detection · tap a string to lock it" : "Locked · tap it again for auto"}</div>
+      <Show
+        when={locked() !== null}
+        fallback={<div class="lock-hint">Auto string detection · tap a string to lock it and hear it</div>}
+      >
+        <div class="lock-row">
+          <button class="hear" classList={{ on: toning() === locked() }} onClick={() => hear(locked()!)}>
+            <Icon name="play" size={14} filled />
+            Hear {noteName(p.tuning.notes[locked()!])}
+          </button>
+          <span class="lock-hint">Tap the string again for auto</span>
+        </div>
+      </Show>
 
       <Show when={sheet()}>
         <TuningSheet

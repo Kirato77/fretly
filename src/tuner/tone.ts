@@ -1,0 +1,45 @@
+import { midiToFreq } from "./notes";
+
+export const TONE_SECONDS = 3;
+const HARMONICS = 12;
+
+/** Harmonic spectrum falling as 1/h^rolloff: low rolloff = bright, high = mellow. */
+function wave(ctx: BaseAudioContext, rolloff: number) {
+  const real = new Float32Array(HARMONICS + 1);
+  const imag = new Float32Array(HARMONICS + 1);
+  for (let h = 1; h <= HARMONICS; h++) imag[h] = 1 / h ** rolloff;
+  return ctx.createPeriodicWave(real, imag);
+}
+
+/**
+ * Builds a plucked-string-like note in `ctx`, sent to `out`, at the exact frequency. Not Karplus-Strong (its
+ * period is rounded to whole samples: high e ~5 cents sharp), and no sweeping filter (a moving filter shifts
+ * the phase, measured 1–3 cents flat). Two oscillators on the same frequency instead: a bright layer that dies
+ * fast for the attack, a mellow one that rings. Only their volumes move, which never changes the pitch.
+ */
+export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out: AudioNode) {
+  const t = ctx.currentTime;
+  const layer = (rolloff: number, peak: number, seconds: number) => {
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(wave(ctx, rolloff));
+    osc.frequency.value = midiToFreq(midi, a4);
+    const amp = ctx.createGain();
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.linearRampToValueAtTime(peak, t + 0.005);
+    amp.gain.exponentialRampToValueAtTime(0.001, t + seconds);
+    osc.connect(amp).connect(out);
+    osc.start(t);
+    osc.stop(t + seconds);
+  };
+  layer(0.9, 0.35, 0.4); // attack: bright, short
+  layer(1.8, 0.45, TONE_SECONDS); // body: mellow, rings
+}
+
+let ctx: AudioContext | undefined;
+
+/** Plays the reference note of a string on the speaker. Call from a tap: iOS only plays audio after a gesture. */
+export function playString(midi: number, a4: number) {
+  ctx ??= new AudioContext();
+  void ctx.resume();
+  connectTone(ctx, midi, a4, ctx.destination);
+}
