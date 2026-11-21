@@ -29,10 +29,11 @@ async function checkForUpdate() {
   busy = true;
   try {
     setStatus("checking for updates…");
-    const latest = await getJson<{ version: string; url: string }>(LATEST);
+    const latest = await getJson<{ version: string; url: string; checksum: string }>(LATEST);
     if (!isNewer(latest.version, VERSION)) return setStatus("up to date");
     setStatus(`downloading ${latest.version}…`);
-    const bundle = await CapacitorUpdater.download({ url: latest.url, version: latest.version });
+    // checksum = SHA-256 of the zip: the plugin requires it and rejects a download that does not match.
+    const bundle = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
     await CapacitorUpdater.next({ id: bundle.id });
     setReadyId(bundle.id);
     setStatus(`${latest.version} ready`);

@@ -42,7 +42,9 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already published"; exit 0; fi
           (cd dist && zip -qr ../bundle.zip .)
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bundle.zip"
-          printf '{"version":"%s","url":"%s"}\n' "$VITE_APP_VERSION" "$url" > latest.json
+          # The updater refuses a bundle without the SHA-256 of its zip, and checks it before installing.
+          checksum=$(sha256sum bundle.zip | cut -d' ' -f1)
+          printf '{"version":"%s","url":"%s","checksum":"%s"}\n' "$VITE_APP_VERSION" "$url" "$checksum" > latest.json
           gh release create "$tag" bundle.zip latest.json --title "Web $VITE_APP_VERSION" --notes "${NOTES:-Manual build}" --latest
           # Keep the three most recent web releases.
           gh release list --limit 100 --json tagName --jq '.[].tagName | select(startswith("web-"))' \
