@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+# Each build deletes and recreates the "ipa" release: two at once could leave it empty.
+concurrency:
+  group: ipa-release
+
 jobs:
   ipa:
     runs-on: macos-latest

@@ -98,10 +98,15 @@ function wrapPair(chords: string, lyric: string, cols: number): string[] {
 function wrapWords(line: string, cols: number): string[] {
   const out: string[] = [];
   let current = "";
-  for (const word of line.split(/(?<= )/)) {
+  for (let word of line.split(/(?<= )/)) {
     if (current && visible(current + word).trimEnd().length > cols) {
       out.push(current.trimEnd());
       current = "";
+    }
+    // A plain word longer than the line ("*****…", "=======…") can only be cut.
+    while (!word.includes("[ch]") && word.trimEnd().length > cols) {
+      out.push(word.slice(0, cols));
+      word = word.slice(cols);
     }
     current += word;
   }
@@ -109,17 +114,51 @@ function wrapWords(line: string, cols: number): string[] {
   return out;
 }
 
-/** Fits a chord sheet to `cols` characters: chord/lyric pairs wrap together, tab staffs are left as is. */
+/**
+ * Cuts a block of staff lines (one per string) at the same columns, so the strings stay aligned.
+ * Prefers cutting right after a bar line; otherwise where no fret number would be split in two.
+ */
+function wrapStaff(block: string[], cols: number): string[] {
+  const width = Math.max(...block.map((l) => l.length));
+  if (width <= cols) return block;
+  const label = /^\s*[A-Ga-g][#b]?\s*\|/.exec(block[0])?.[0].length ?? 0; // "e|" repeated on every piece
+  const room = cols - label;
+  const digitAt = (l: string, i: number) => /\d/.test(l[i] ?? "");
+  const out: string[] = [];
+  let start = label;
+  while (start < width) {
+    let end = Math.min(start + room, width);
+    if (end < width) {
+      const bar = block[0].lastIndexOf("|", end - 1);
+      if (bar >= start + room / 2) end = bar + 1;
+      else
+        while (end > start + 1 && block.some((l) => digitAt(l, end - 1) && digitAt(l, end))) end--;
+    }
+    if (out.length) out.push("");
+    for (const l of block) out.push(l.slice(0, label) + l.slice(start, end));
+    start = end;
+  }
+  return out;
+}
+
+/** Fits a chord sheet to `cols` characters: chord/lyric pairs wrap together, staff blocks are cut together. */
 export function wrapSheet(lines: string[], cols: number): string[] {
   const out: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (isStaff(line)) {
+      let j = i;
+      while (j < lines.length && isStaff(lines[j])) j++;
+      out.push(...wrapStaff(lines.slice(i, j), cols));
+      i = j - 1;
+      continue;
+    }
     const next = lines[i + 1];
     const isPair = isChordLine(line) && next !== undefined && next.trim() && !next.includes("[ch]") && !isStaff(next);
     if (isPair && Math.max(visible(line).length, next.length) > cols) {
       out.push(...wrapPair(line, next, cols));
       i++;
-    } else if (!isStaff(line) && visible(line).length > cols) {
+    } else if (visible(line).length > cols) {
       out.push(...wrapWords(line, cols));
     } else {
       out.push(line);

@@ -84,6 +84,31 @@ describe("Songsterr", () => {
     expect(lines[1].indexOf("[ch]Em7")).toBe(lines[2].indexOf("3"));
   });
 
+  it("splits a measure wider than the screen between beats, keeping every note", () => {
+    const sixteenths = Array.from({ length: 16 }, (_, i) => ({ notes: [{ fret: 10 + (i % 3), string: 0 }], duration: [1, 16] as [number, number] }));
+    const dense: SsTrack = { instrument: "Guitar", tuning: [64, 59, 55, 50, 45, 40], measures: [{ voices: [{ beats: sixteenths }] }] };
+    const lines = trackToLines(dense, 40);
+    const tabLines = lines.filter((l) => /^[A-G]#?\|/.test(l));
+    expect(tabLines.every((l) => l.length <= 40)).toBe(true);
+    expect(tabLines.length).toBeGreaterThan(6); // more than one row of 6 strings
+    const top = tabLines.filter((_, i) => i % 6 === 0).join("");
+    expect(top.match(/1[012]/g)!.length).toBe(16); // all 16 notes, none cut in half
+    expect(tabLines[0].endsWith("|")).toBe(false); // continued piece: no fake bar line
+    expect(tabLines.at(-1)!.endsWith("|")).toBe(true); // real end of the measure
+  });
+
+  it("keeps chord names inside the width when cutting a measure", () => {
+    const beats = Array.from({ length: 8 }, (_, i) => ({
+      notes: [{ fret: 3, string: 1 }],
+      duration: [1, 8] as [number, number],
+      ...(i % 2 ? {} : { chord: { text: "A7sus4" } }),
+    }));
+    const t: SsTrack = { instrument: "Guitar", tuning: [64, 59, 55, 50, 45, 40], measures: [{ voices: [{ beats }] }] };
+    const lines = trackToLines(t, 23);
+    expect(lines.every((l) => l.replace(/\[ch\](.*?)\[\/ch\]/g, "$1").length <= 23)).toBe(true);
+    expect(lines.join("").match(/A7sus4/g)!.length).toBe(4);
+  });
+
   it("renders a compacted track exactly like the full one, from plain JSON", () => {
     const stored = JSON.parse(JSON.stringify(compactTrack(track))); // as saved and reloaded
     expect(trackToLines(stored, 50)).toEqual(trackToLines(track, 50));
@@ -120,8 +145,40 @@ describe("wrapSheet", () => {
     expect(out.length).toBeGreaterThan(1);
   });
 
-  it("leaves tab staffs and short lines alone", () => {
-    const staff = "e|-------0-----0-----0-----0-----3-----3-----3-----3-----|";
+  it("cuts a single word longer than the line", () => {
+    expect(wrapSheet(["*".repeat(35)], 20)).toEqual(["*".repeat(20), "*".repeat(15)]);
+  });
+
+  it("leaves lines that fit alone", () => {
+    const staff = "e|---0---3---|";
     expect(wrapSheet([staff, "short"], 20)).toEqual([staff, "short"]);
+  });
+
+  it("cuts a wide staff block at the same columns on every string, after a bar line", () => {
+    const block = [
+      "e|-----0-----0-----0-----|-----3-----3-----3-----|-----5---|",
+      "B|---1-----1-----1-------|---0-----0-----0-------|---6-----|",
+      "G|-2-----2-----2---------|-0-----0-----0---------|-7-------|",
+    ];
+    const out = wrapSheet(block, 30);
+    expect(out.every((l) => l.length <= 30)).toBe(true);
+    const rows = out.join("\n").split("\n\n").map((r) => r.split("\n"));
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) expect(row.map((l) => l.slice(0, 2))).toEqual(["e|", "B|", "G|"]); // string names kept
+    expect(rows[0][0].endsWith("|")).toBe(true); // cut right after a bar
+    // Nothing lost: gluing the pieces back gives the original strings
+    for (let s = 0; s < 3; s++) expect("e|B|G|".slice(s * 2, s * 2 + 2) + rows.map((r) => r[s].slice(2)).join("")).toBe(block[s]);
+  });
+
+  it("never splits a two-digit fret when there is no bar to cut at", () => {
+    const block = ["e|" + "-12-".repeat(20), "B|" + "-10-".repeat(20)];
+    const rows = wrapSheet(block, 32).join("\n").split("\n\n").map((r) => r.split("\n").map((l) => l.slice(2)));
+    expect(rows.length).toBeGreaterThan(1);
+    expect(rows.every((r) => r.every((l) => l.length <= 30))).toBe(true); // 32 cols: a blind cut would land inside "12"
+    for (let s = 0; s < 2; s++) expect(rows.map((r) => r[s]).join("")).toBe(block[s].slice(2)); // nothing lost
+    for (let i = 1; i < rows.length; i++) {
+      // at each cut, the last char of a piece and the first of the next are never both digits
+      for (let s = 0; s < 2; s++) expect(/\d/.test(rows[i - 1][s].at(-1)!) && /\d/.test(rows[i][s][0])).toBe(false);
+    }
   });
 });

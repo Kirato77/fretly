@@ -48,7 +48,8 @@ export function TabView(p: { hit: SearchHit; onBack(): void }) {
     void save("tabSpeed", speedIdx());
   };
 
-  const cols = () => Math.max(30, Math.floor(width() / (size() * CHAR_RATIO)));
+  // Floor only guards the first frame before the width is measured: 20 still fits 24 px text on a phone.
+  const cols = () => Math.max(20, Math.floor(width() / (size() * CHAR_RATIO)));
   const lines = () => {
     const d = doc();
     if (!d) return [];

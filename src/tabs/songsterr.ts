@@ -82,11 +82,16 @@ interface Rendered {
   width: number;
   chords: { col: number; text: string }[];
   lines: string[];
+  /** Columns where a beat starts: the only places a measure may be cut. */
+  cuts: number[];
+  /** A piece of a measure that continues on the next row: drawn without its closing bar. */
+  open?: boolean;
 }
 
 function renderMeasure(m: SsMeasure, strings: number): Rendered {
   const lines: string[] = Array(strings).fill("");
   const chords: Rendered["chords"] = [];
+  const cuts: number[] = [];
   // First voice only and no rhythm notation (spacing hints durations): alphaTab would be the upgrade.
   for (const beat of m.voices[0]?.beats ?? []) {
     const cells: string[] = Array(strings).fill("");
@@ -95,11 +100,43 @@ function renderMeasure(m: SsMeasure, strings: number): Rendered {
     }
     const w = Math.max(1, ...cells.map((c) => c.length));
     const gap = beat.duration[1] <= 4 ? 3 : beat.duration[1] <= 8 ? 2 : 1;
+    cuts.push(lines[0].length);
     if (beat.chord?.text) chords.push({ col: lines[0].length + 1, text: beat.chord.text });
     for (let i = 0; i < strings; i++) lines[i] += "-" + cells[i].padEnd(w, "-") + "-".repeat(gap);
   }
   if (!lines[0]) lines.fill("--------");
-  return { width: lines[0].length + 1, chords, lines };
+  return { width: lines[0].length + 1, chords, lines, cuts };
+}
+
+/** Width a piece takes on screen: its staff, or a chord name sticking out past it. */
+const extent = (r: Rendered) => Math.max(r.width, ...r.chords.map((c) => c.col + c.text.length));
+
+/** Cuts a measure wider than `room` between beats; every piece keeps all the strings. */
+function splitMeasure(r: Rendered, room: number): Rendered[] {
+  const length = r.lines[0].length;
+  const pieces: Rendered[] = [];
+  let start = 0;
+  // A cut is valid when the piece before it, chord names included, fits in the room.
+  const fits = (end: number) =>
+    end - start <= room && r.chords.every((c) => c.col <= start || c.col > end || c.col - start + c.text.length <= room);
+  while (extent(piece(r, start, length, false)) > room) {
+    const end = Math.max(...r.cuts.filter((c) => c > start && fits(c)));
+    if (!Number.isFinite(end)) break; // a single beat wider than the screen: nothing to cut
+    pieces.push(piece(r, start, end, true));
+    start = end;
+  }
+  pieces.push(piece(r, start, length, false));
+  return pieces;
+}
+
+function piece(r: Rendered, start: number, end: number, open: boolean): Rendered {
+  return {
+    width: end - start + (open ? 0 : 1),
+    chords: r.chords.filter((c) => c.col > start && c.col <= end).map((c) => ({ ...c, col: c.col - start })),
+    lines: r.lines.map((l) => l.slice(start, end)),
+    cuts: [],
+    open,
+  };
 }
 
 /** ASCII tab, measures packed into rows of at most `cols` characters, a new row at each section. */
@@ -125,21 +162,23 @@ export function trackToLines(track: SsTrack, cols: number): string[] {
       x += r.width;
     }
     if (chordLine) out.push(chordLine);
-    for (let s = 0; s < strings; s++) out.push(labels[s] + row.map((r) => r.lines[s] + "|").join(""));
+    for (let s = 0; s < strings; s++) out.push(labels[s] + row.map((r) => r.lines[s] + (r.open ? "" : "|")).join(""));
     out.push("");
     row = [];
   };
 
   let width = labelW;
   for (const m of track.measures) {
-    const r = renderMeasure(m, strings);
-    if (m.marker || width + r.width > cols) {
-      flush();
-      width = labelW;
-    }
-    if (m.marker) out.push(`[${m.marker.text}]`);
-    row.push(r);
-    width += r.width;
+    splitMeasure(renderMeasure(m, strings), cols - labelW).forEach((r, i) => {
+      const section = i === 0 && m.marker;
+      if (section || width + extent(r) > cols) {
+        flush();
+        width = labelW;
+      }
+      if (section) out.push(`[${m.marker!.text}]`);
+      row.push(r);
+      width += extent(r);
+    });
   }
   flush();
   return out;
