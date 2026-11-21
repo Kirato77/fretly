@@ -17,6 +17,7 @@ export function App() {
   const [openHit, setOpenHit] = createSignal<SearchHit | null>(null);
   const [loaded, setLoaded] = createSignal(false);
   const [toastHidden, setToastHidden] = createSignal(false);
+  const [songsBack, setSongsBack] = createSignal(0);
 
   const tunings = () => [...PRESETS, ...customs()];
   const tuning = () => tunings().find((t) => t.id === tuningId()) ?? DEFAULT_TUNING;
@@ -66,7 +67,7 @@ export function App() {
         <section class="view" hidden={view() !== "tabs"}>
           {/* The list stays mounted under an open tab so search results survive going back. */}
           <div hidden={!!openHit()}>
-            <Songs instrument={tuning().instrument} tunings={tunings()} onOpen={setOpenHit} />
+            <Songs instrument={tuning().instrument} tunings={tunings()} onOpen={setOpenHit} back={songsBack()} />
           </div>
           <Show when={openHit()}>
             {(hit) => (
@@ -100,10 +101,14 @@ export function App() {
           <Icon name="tuner" />
           <span>Tuner</span>
         </button>
-        {/* Tapping Songs while already there goes back to the list (iOS convention). */}
+        {/* Tapping Songs while there acts as Back: open tab → search results → library (then scrolls to the top). */}
         <button
           classList={{ on: view() === "tabs" }}
-          onClick={() => (view() === "tabs" ? setOpenHit(null) : setView("tabs"))}
+          onClick={() => {
+            if (view() !== "tabs") setView("tabs");
+            else if (openHit()) setOpenHit(null);
+            else setSongsBack(songsBack() + 1);
+          }}
           aria-current={view() === "tabs" ? "page" : undefined}
         >
           <Icon name="songs" />

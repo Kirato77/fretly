@@ -26,6 +26,8 @@ interface Props {
   instrument: Instrument;
   tunings: Tuning[];
   onOpen(hit: SearchHit): void;
+  /** Bumped when the Songs tab button is tapped again: leave search, or scroll the library to the top. */
+  back: number;
 }
 
 /**
@@ -43,6 +45,7 @@ export function Songs(p: Props) {
   const [sortAZ, setSortAZ] = createSignal(false);
   let latest = 0;
   let input!: HTMLInputElement;
+  let root!: HTMLDivElement;
 
   onMount(async () => {
     setRecentQueries(await load("recentSearches", []));
@@ -96,6 +99,14 @@ export function Songs(p: Props) {
     input.blur();
   }
 
+  createEffect(
+    on(
+      () => p.back,
+      () => (searching() ? cancel() : root.closest(".view")?.scrollTo({ top: 0, behavior: "smooth" })),
+      { defer: true },
+    ),
+  );
+
   // Results are filtered per instrument: switching instrument in the tuner refreshes them.
   createEffect(on(() => p.instrument, () => run(lastQuery()), { defer: true }));
 
@@ -126,7 +137,7 @@ export function Songs(p: Props) {
   const libraryMatches = createMemo(() => searchLibrary(query(), [...favorites(), ...recentOnly()]));
 
   return (
-    <div class="search">
+    <div class="search" ref={root}>
       <header class="search-head">
         <h1>Songs</h1>
         <div class="search-bar">
