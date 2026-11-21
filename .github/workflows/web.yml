@@ -1,0 +1,47 @@
+name: Web bundle
+
+# Every push to main publishes the web app as a GitHub release. Installed copies of Fretly
+# pick it up on launch (src/updater.ts) and switch to it on the next restart.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-release
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Version from commit time
+        run: echo "VITE_APP_VERSION=0.1.$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - run: npm run build
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          tag="web-$VITE_APP_VERSION"
+          (cd dist && zip -qr ../bundle.zip .)
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bundle.zip"
+          printf '{"version":"%s","url":"%s"}\n' "$VITE_APP_VERSION" "$url" > latest.json
+          gh release create "$tag" bundle.zip latest.json --title "Web $VITE_APP_VERSION" --notes "${NOTES:-Manual build}" --latest
+          # Keep the three most recent web releases.
+          gh release list --limit 100 --json tagName --jq '.[].tagName | select(startswith("web-"))' \
+            | tail -n +4 | xargs -r -n1 gh release delete --yes --cleanup-tag

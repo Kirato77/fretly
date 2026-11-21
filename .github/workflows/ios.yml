@@ -1,0 +1,58 @@
+name: iOS app
+
+# Builds an unsigned IPA and attaches it to the "ipa" pre-release. Only needed when native code or
+# plugins change: web changes reach installed apps through the Web bundle workflow.
+# Sideloading tools (SideStore, LiveContainer, AltStore…) sign it with your own Apple ID.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Version from commit time
+        run: echo "VITE_APP_VERSION=0.1.$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - run: npm run build
+      - run: npx cap sync ios
+
+      - name: Build app (no code signing)
+        run: |
+          xcodebuild build \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry fretly.ipa Payload
+
+      - name: Publish IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ipa >/dev/null 2>&1 || gh release create ipa --prerelease \
+            --title "iOS app (unsigned IPA)" \
+            --notes "Unsigned build of Fretly $VITE_APP_VERSION. Install it with a sideloading tool; later web updates arrive automatically."
+          gh release upload ipa fretly.ipa --clobber
+          gh release edit ipa --notes "Unsigned build of Fretly $VITE_APP_VERSION. Install it with a sideloading tool; later web updates arrive automatically."

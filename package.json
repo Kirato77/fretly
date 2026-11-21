@@ -1,0 +1,34 @@
+{
+  "name": "fretly",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Precise guitar, bass and ukulele tuner with free tab search. Solid + Capacitor, built to be sideloaded on iPhone.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kirato77/fretly.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "vite --mode lan",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capgo/capacitor-updater": "^8.54.2",
+    "pitchy": "^4.1.0",
+    "solid-js": "^1.9.19"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-solid": "^2.11.17",
+    "vitest": "^5.1.1"
+  }
+}
