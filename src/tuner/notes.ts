@@ -1,5 +1,8 @@
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+/** Flat spellings to the sharp names the app uses (tab tunings, chord names). */
+export const FLAT_TO_SHARP: Record<string, string> = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#", Cb: "B", Fb: "E" };
+
 export const midiToFreq = (midi: number, a4 = 440) => a4 * 2 ** ((midi - 69) / 12);
 
 /** Fractional MIDI number, e.g. 40.03 = E2 three cents sharp. */

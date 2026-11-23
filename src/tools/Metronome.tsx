@@ -56,6 +56,7 @@ export function Metronome(p: { active: boolean }) {
 
   function stop() {
     clearInterval(timer);
+    void ctx?.suspend(); // clicks are scheduled ahead: without this the next one still sounds after Stop
     setRunning(false);
     setBeat(-1);
   }

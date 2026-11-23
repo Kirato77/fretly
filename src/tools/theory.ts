@@ -1,8 +1,8 @@
-import { NOTE_NAMES } from "../tuner/notes";
+import { FLAT_TO_SHARP, NOTE_NAMES } from "../tuner/notes";
 
 export const ROOTS = NOTE_NAMES; // C, C#, D… (sharps, as the tuner names notes)
-const INTERVAL_NAMES = ["1", "b2", "2", "b3", "3", "4", "b5", "5", "b6", "6", "b7", "7", "1", "b9", "9"];
-export const intervalName = (semitones: number) => INTERVAL_NAMES[semitones % 12 === semitones ? semitones : semitones % 12];
+const INTERVAL_NAMES = ["1", "b2", "2", "b3", "3", "4", "b5", "5", "b6", "6", "b7", "7"];
+export const intervalName = (semitones: number) => INTERVAL_NAMES[semitones % 12];
 
 export interface ChordType {
   id: string;
@@ -41,7 +41,6 @@ const ALIASES: Record<string, string> = {
   "+": "aug", add2: "add9", "2": "sus2", "4": "sus4", "7sus": "7sus4", maj: "",
 };
 
-const FLAT_TO_SHARP: Record<string, string> = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#", Cb: "B", Fb: "E" };
 const pcOf = (note: string) => ROOTS.indexOf(FLAT_TO_SHARP[note] ?? note);
 
 export interface Chord {

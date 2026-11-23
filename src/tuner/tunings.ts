@@ -1,4 +1,4 @@
-import { parseNote, pitchClass } from "./notes";
+import { FLAT_TO_SHARP, parseNote, pitchClass } from "./notes";
 
 export type Instrument = "guitar" | "bass" | "ukulele";
 
@@ -44,8 +44,6 @@ export const INSTRUMENTS: { id: Instrument; label: string }[] = [
   { id: "bass", label: "Bass" },
   { id: "ukulele", label: "Ukulele" },
 ];
-
-const FLAT_TO_SHARP: Record<string, string> = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
 
 /** "Eb Ab Db Gb Bb Eb" or "e a d g b e" → "D# G# C# F# A# D#": low to high, sharps, as the tuner names notes. */
 export const normalizeTuning = (value: string) =>

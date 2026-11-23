@@ -107,6 +107,7 @@ describe("tab tunings", () => {
   it("normalises the way tab sites write tunings", () => {
     expect(normalizeTuning("Eb Ab Db Gb Bb Eb")).toBe("D# G# C# F# A# D#");
     expect(normalizeTuning(" e a d g b e ")).toBe("E A D G B E");
+    expect(normalizeTuning("Cb Fb")).toBe("B E"); // same table as chord names
   });
 
   it("finds the tuner tuning a tab is written for", () => {
