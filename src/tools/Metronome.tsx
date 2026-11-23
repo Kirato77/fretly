@@ -1,5 +1,6 @@
 import { createEffect, createSignal, For, onCleanup } from "solid-js";
 import { load, save } from "../storage";
+import { keepAwake } from "../awake";
 import { Icon } from "../ui/Icon";
 import { TEMPO_MAX as MAX, TEMPO_MIN as MIN, tapTempo } from "./theory";
 
@@ -62,6 +63,7 @@ export function Metronome(p: { active: boolean }) {
   }
 
   createEffect(() => !p.active && stop());
+  createEffect(() => keepAwake("metronome", running()));
   const onVisibility = () => document.hidden && stop();
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => {

@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { keepAwake } from "../awake";
 import { Icon } from "../ui/Icon";
 import { Dial } from "./Dial";
 import { noteName, octave, pitchClass } from "./notes";
@@ -115,6 +116,8 @@ export function Tuner(p: Props) {
     smoother.reset();
     setMidi(null);
   }
+
+  createEffect(() => keepAwake("tuner", running())); // tuning with the phone on a stand: no auto-lock
 
   // Release the mic when leaving the tab or the app: battery, and the iOS mic indicator.
   createEffect(() => !p.active && stop());

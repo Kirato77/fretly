@@ -1,4 +1,5 @@
 import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { keepAwake } from "./awake";
 import { load, save } from "./storage";
 import { loadFavorites } from "./tabs/favorites";
 import { Songs } from "./tabs/Songs";
@@ -37,6 +38,9 @@ export function App() {
     void save("tuningId", tuningId());
     void save("a4", a4());
   });
+
+  // Reading a tab while playing: the screen must not lock under your hands.
+  createEffect(() => keepAwake("tab", view() === "tabs" && !!openHit()));
 
   const saveCustom = (t: Tuning) => {
     setCustoms((list) => [...list.filter((c) => c.id !== t.id), t]);

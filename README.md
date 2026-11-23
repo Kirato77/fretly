@@ -37,6 +37,7 @@ A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline 
 - Metronome: 30–240 BPM, tap tempo, 2/4 to 6/4 with an accented first beat, clicks scheduled on the audio clock
 
 **App**
+- The screen stays on while the tuner listens, a tab is open or the metronome runs
 - Updates itself: every push to `main` is published as an encrypted, signed web bundle; the app installs it only if the signature matches the public key it ships with
 - Light and dark themes, iPhone safe areas, reduced-motion support
 

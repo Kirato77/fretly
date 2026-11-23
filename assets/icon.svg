@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Fretly app icon: the tuner's arc with its dot in tune, over six strings, in the lake palette. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123247"/>
+      <stop offset="1" stop-color="#081118"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="300" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4aa3d0" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#4aa3d0" stop-opacity="0"/>
+    </radialGradient>
+    <!-- userSpaceOnUse: a gradient sized on a vertical line's own (zero-width) box is not drawn -->
+    <linearGradient id="strings" x1="0" y1="560" x2="0" y2="930" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e9f1f5" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#e9f1f5" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <!-- strings -->
+  <g stroke="url(#strings)" stroke-linecap="round">
+    <line x1="337" y1="560" x2="337" y2="930" stroke-width="16"/>
+    <line x1="407" y1="560" x2="407" y2="930" stroke-width="14"/>
+    <line x1="477" y1="560" x2="477" y2="930" stroke-width="12"/>
+    <line x1="547" y1="560" x2="547" y2="930" stroke-width="10"/>
+    <line x1="617" y1="560" x2="617" y2="930" stroke-width="8"/>
+    <line x1="687" y1="560" x2="687" y2="930" stroke-width="7"/>
+  </g>
+  <!-- tuner arc, -70° to +70° around (512, 640), radius 360 -->
+  <path d="M 173.7 516.9 A 360 360 0 0 1 850.3 516.9" fill="none" stroke="#e9f1f5" stroke-width="40" stroke-linecap="round"/>
+  <!-- in-tune zone and dot at the top -->
+  <path d="M 420.8 291.7 A 360 360 0 0 1 603.2 291.7" fill="none" stroke="#3ddc97" stroke-width="40" stroke-linecap="round"/>
+  <circle cx="512" cy="280" r="74" fill="#4aa3d0" filter="url(#soft)" opacity="0.9"/>
+  <circle cx="512" cy="280" r="62" fill="#4aa3d0" stroke="#081118" stroke-width="16"/>
+</svg>
