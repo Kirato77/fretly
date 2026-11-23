@@ -69,6 +69,21 @@ describe("sung melody", () => {
     expect(notes.map((n) => n.midi)).toEqual(tune);
   });
 
+  it("reads a quiet hum, as the iPhone mic records it, and ignores the room noise", () => {
+    const tune = ["E4", "G4", "A4", "G4"].map(parseNote);
+    const buf = new Float32Array(Math.ceil(3 * RATE));
+    let phase = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const t = i / RATE;
+      const k = Math.floor((t - 0.5) / 0.45);
+      const humming = k >= 0 && k < tune.length;
+      if (humming) phase += (2 * Math.PI * midiToFreq(tune[k] + 0.25 * Math.sin(2 * Math.PI * 5 * t))) / RATE;
+      const syllable = humming ? Math.min(1, ((t - 0.5) % 0.45) / 0.03, (0.45 - ((t - 0.5) % 0.45)) / 0.03) : 0;
+      buf[i] = 0.004 * syllable * (Math.sin(phase) + 0.3 * Math.sin(2 * phase)) + 0.0003 * rand(); // peak ~-45 dBFS
+    }
+    expect(segmentMelody(pitchTrack(buf, RATE)).map((n) => n.midi)).toEqual(tune);
+  });
+
   it("suggests chords that fit the melody in its key", () => {
     const m = (names: string, start: number) => names.split(" ").map((n, i): Note => ({ midi: parseNote(n), start: start + i * 0.5, duration: 0.5, amplitude: 1 }));
     const melody = [...m("C4 E4 G4 E4", 0), ...m("F4 A4 C5 A4", 2), ...m("G4 B4 D5 B4", 4), ...m("C5 G4 E4 C4", 6)];

@@ -151,9 +151,17 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
       } else {
         saved.notes = await transcribeSamples(samples, setProgress);
       }
+      if (!saved.notes.length && !saved.chords?.some((c) => c.chord)) {
+        setError(
+          m === "voice"
+            ? "No clear tune heard. Hum or sing closer to the phone, one note at a time, without music playing."
+            : "Nothing clear heard. Try closer to the sound, or a longer passage.",
+        );
+        return; // keep the previous result
+      }
       setAudio(buffer);
       setResult(saved);
-      setView("chords");
+      setView(m === "voice" ? "notes" : "chords"); // a tune is its notes; its chords are only suggestions
       void save("lastTranscription", saved);
     } catch (e) {
       setError(`Could not read this audio (${e instanceof Error ? e.message : e}).`);

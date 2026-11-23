@@ -6,7 +6,10 @@ import type { ChordSpan, Note } from "./analysis";
 const WINDOW = 2048; // ~93 ms at 22 kHz: two periods of a low male voice (~80 Hz)
 const HOP = 256; // ~12 ms between readings
 const MIN_CLARITY = 0.85;
-const MIN_RMS = 0.01;
+// The iPhone mic, without automatic gain, records quietly: the floor is the tuner's, and the real gate is
+// relative to the recording (a tenth of its loud parts), so room noise between phrases is still ignored.
+const MIN_RMS = 0.0008;
+const RELATIVE_GATE = 0.1;
 const MIN_NOTE_S = 0.09;
 
 interface Track {
@@ -20,14 +23,20 @@ interface Track {
 export function pitchTrack(samples: Float32Array, rate: number): Track {
   const detector = PitchDetector.forFloat32Array(WINDOW);
   detector.minVolumeAbsolute = MIN_RMS;
-  const midi: (number | null)[] = [];
-  const rms: number[] = [];
-  for (let i = 0; i + WINDOW <= samples.length; i += HOP) {
+  const starts: number[] = [];
+  for (let i = 0; i + WINDOW <= samples.length; i += HOP) starts.push(i);
+  const level = (a: number, b: number) => {
+    const part = samples.subarray(a, b);
+    return Math.sqrt(part.reduce((s, x) => s + x * x, 0) / part.length);
+  };
+  const rms = starts.map((i) => level(i + WINDOW / 2 - HOP, i + WINDOW / 2 + HOP));
+  const loud = [...rms].sort((a, b) => a - b)[Math.floor(rms.length * 0.9)] ?? 0;
+  const gate = Math.max(MIN_RMS, loud * RELATIVE_GATE);
+  const midi = starts.map((i) => {
+    if (level(i, i + WINDOW) < gate) return null;
     const [freq, clarity] = detector.findPitch(samples.subarray(i, i + WINDOW), rate);
-    midi.push(clarity >= MIN_CLARITY && freq > 65 && freq < 1400 ? freqToMidi(freq) : null);
-    const mid = samples.subarray(i + WINDOW / 2 - HOP, i + WINDOW / 2 + HOP);
-    rms.push(Math.sqrt(mid.reduce((a, x) => a + x * x, 0) / mid.length));
-  }
+    return clarity >= MIN_CLARITY && freq > 65 && freq < 1400 ? freqToMidi(freq) : null;
+  });
   return { hop: HOP / rate, midi, rms };
 }
 
