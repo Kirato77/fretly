@@ -9,17 +9,62 @@ import { noteName } from "../tuner/notes";
 import { playNotes } from "../tuner/tone";
 import type { Tuning } from "../tuner/tunings";
 import { Icon } from "../ui/Icon";
-import { cleanNotes, detectChords, detectKey, groupOnsets, placeOnStrings, toTrack, type Note } from "./analysis";
-import { decodeAudio, MAX_SECONDS, transcribeAudio } from "./engine";
+import {
+  cleanNotes,
+  detectChords,
+  detectKey,
+  groupOnsets,
+  keyFromProfile,
+  melodyLine,
+  placeOnStrings,
+  toTrack,
+  type ChordSpan,
+  type Note,
+} from "./analysis";
+import { songChords } from "./chroma";
+import { decodeAudio, MAX_SECONDS, MODEL_RATE, monoSamples, transcribeSamples } from "./engine";
+import { harmonize, pitchTrack, segmentMelody } from "./melody";
 
 type View = "chords" | "notes" | "tab";
+type Mode = "instrument" | "voice" | "song";
 interface Saved {
   name: string;
   duration: number;
+  mode?: Mode; // absent: saved before modes existed (instrument)
   notes: Note[];
+  /** Full song: chords read from the sound, and its energy per pitch class (for the key). */
+  chords?: ChordSpan[];
+  profile?: number[];
 }
 
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const MODES: { id: Mode; label: string; record: string; working: string; hint: string }[] = [
+  {
+    id: "instrument",
+    label: "Instrument",
+    record: "Your guitar, a riff, a progression",
+    working: "Listening for every note…",
+    hint: "One instrument: a riff, a chord progression, a solo.",
+  },
+  {
+    id: "voice",
+    label: "Voice",
+    record: "Sing, hum or whistle a tune",
+    working: "Following the melody…",
+    hint: "A tune sung, hummed or whistled. You get its notes, and chords that fit under it.",
+  },
+  {
+    id: "song",
+    label: "Full song",
+    record: "A song playing nearby",
+    working: "Reading the chords, then the melody…",
+    hint: "A whole mix with drums and vocals. Chords come from the sound; the notes follow the top line (a lead, a sample, the voice).",
+  },
+];
+
+const clock = (seconds: number) => {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
 const CHAR_RATIO = 0.6;
 
 /** Record or import a clip, get its chords, notes and a suggested tab. */
@@ -31,19 +76,41 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
   const [elapsed, setElapsed] = createSignal(0);
   const [error, setError] = createSignal("");
   const [view, setView] = createSignal<View>("chords");
+  const [mode, setMode] = createSignal<Mode>("instrument");
+  const modeInfo = () => MODES.find((m) => m.id === mode())!;
   const [openChord, setOpenChord] = createSignal<string | null>(null);
   const [playhead, setPlayhead] = createSignal<number | null>(null);
   const [width, setWidth] = createSignal(340);
   let fileInput!: HTMLInputElement;
   let tabBox: HTMLDivElement | undefined;
 
-  onMount(async () => setResult(await load<Saved | null>("lastTranscription", null)));
+  onMount(async () => {
+    setMode(await load<Mode>("transcribeMode", "instrument"));
+    setResult(await load<Saved | null>("lastTranscription", null));
+  });
+  const pickMode = (m: Mode) => {
+    setMode(m);
+    void save("transcribeMode", m);
+  };
   createEffect(() => keepAwake("transcribe", phase() !== "idle" || playhead() !== null));
 
-  // Everything below is derived from the notes, so a tuning change re-places the tab at once.
-  const notes = createMemo(() => cleanNotes(result()?.notes ?? [], p.tuning.notes));
-  const chords = createMemo(() => detectChords(notes()));
-  const key = createMemo(() => detectKey(notes()));
+  // Everything below is derived from the saved notes, so a tuning change re-places the tab at once.
+  const resultMode = () => result()?.mode ?? "instrument";
+  const notes = createMemo(() => {
+    const raw = result()?.notes ?? [];
+    if (resultMode() === "voice") return raw; // already clean: one note at a time, from the pitch tracker
+    const clean = cleanNotes(raw, p.tuning.notes);
+    return resultMode() === "song" ? melodyLine(clean) : clean;
+  });
+  const key = createMemo(() => {
+    const profile = result()?.profile;
+    return resultMode() === "song" && profile ? keyFromProfile(profile) : detectKey(notes());
+  });
+  const chords = createMemo(() => {
+    if (resultMode() === "song") return result()?.chords ?? [];
+    if (resultMode() === "voice") return key() ? harmonize(notes(), key()!) : [];
+    return detectChords(notes());
+  });
   const groups = createMemo(() => groupOnsets(notes()));
   const tabTuning = () => chordTuning(p.tuning).notes;
   const tab = createMemo(() =>
@@ -67,8 +134,21 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
     setError("");
     try {
       const buffer = await decodeAudio(data);
-      const heard = await transcribeAudio(buffer, setProgress);
-      const saved = { name, duration: Math.min(buffer.duration, MAX_SECONDS), notes: heard };
+      const samples = await monoSamples(buffer);
+      const m = mode();
+      const saved: Saved = { name, duration: Math.min(buffer.duration, MAX_SECONDS), mode: m, notes: [] };
+      if (m === "voice") {
+        saved.notes = segmentMelody(pitchTrack(samples, MODEL_RATE));
+        setProgress(1);
+      } else if (m === "song") {
+        // Chords first (quick), then every note for the melody line (the model takes most of the time).
+        const { spans, profile } = await songChords(samples, MODEL_RATE, (x) => setProgress(x * 0.25));
+        saved.chords = spans;
+        saved.profile = profile;
+        saved.notes = await transcribeSamples(samples, (x) => setProgress(0.25 + x * 0.75));
+      } else {
+        saved.notes = await transcribeSamples(samples, setProgress);
+      }
       setAudio(buffer);
       setResult(saved);
       setView("chords");
@@ -205,17 +285,28 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
           <div class="progress" role="progressbar" aria-valuenow={Math.round(progress() * 100)} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${Math.round(progress() * 100)}%` }} />
           </div>
-          <p>Listening for every note… {Math.round(progress() * 100)}%</p>
+          <p>
+            {modeInfo().working} {Math.round(progress() * 100)}%
+          </p>
           <p class="muted small">Runs on your phone, offline. A full song takes a little while.</p>
         </div>
       </Show>
 
       <Show when={phase() === "idle"}>
+        <div class="segmented" role="group" aria-label="What is it">
+          <For each={MODES}>
+            {(m) => (
+              <button classList={{ on: mode() === m.id }} aria-pressed={mode() === m.id} onClick={() => pickMode(m.id)}>
+                {m.label}
+              </button>
+            )}
+          </For>
+        </div>
         <div class="capture-actions">
           <button class="action-card" onClick={record}>
             <Icon name="mic" size={26} />
             <span>Record</span>
-            <small>Your guitar, or a song playing nearby</small>
+            <small>{modeInfo().record}</small>
           </button>
           <button class="action-card" onClick={() => fileInput.click()}>
             <Icon name="songs" size={26} />
@@ -229,11 +320,7 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
 
         <Show
           when={result()}
-          fallback={
-            <p class="muted small center">
-              Works best on one instrument: a riff, a chord progression. Full mixes with drums and vocals give rougher results.
-            </p>
-          }
+          fallback={<p class="muted small center">{modeInfo().hint}</p>}
         >
           {(r) => (
             <>
@@ -283,6 +370,13 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
               </div>
 
               <Show when={view() === "chords"}>
+                <Show when={resultMode() !== "instrument"}>
+                  <p class="muted small">
+                    {resultMode() === "voice"
+                      ? "Suggested chords that fit the melody, from its key: a starting point, not what was played."
+                      : "Chords heard in the mix. The Notes and Tab views follow the top line: a lead, a sample or the voice."}
+                  </p>
+                </Show>
                 <div class="card">
                   <For each={chords()} fallback={<p class="notice">No clear chords heard: try the Notes view.</p>}>
                     {(c) => (

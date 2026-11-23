@@ -101,3 +101,12 @@ describe("on real model output", () => {
     expect(riff.map((g) => g[0])).toEqual([40, 43, 45, 43, 40]); // E2 G2 A2 G2 E2
   });
 });
+
+describe("notes split by the model", () => {
+  it("joins a note re-detected on a drum hit, keeps a real repeat", () => {
+    const n = (start: number, duration: number, amplitude: number, midi = 76): Note => ({ start, duration, midi, amplitude });
+    const split = cleanNotes([n(0, 0.26, 0.68), n(0.27, 0.2, 0.61)], STANDARD);
+    expect(split.map((x) => [x.start, +x.duration.toFixed(2)])).toEqual([[0, 0.47]]);
+    expect(cleanNotes([n(0, 0.4, 0.6), n(0.5, 0.4, 0.65)], STANDARD)).toHaveLength(2);
+  });
+});

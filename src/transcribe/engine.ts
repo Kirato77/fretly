@@ -3,7 +3,7 @@ import type { Note } from "./analysis";
 // Basic Pitch (Spotify, Apache-2.0) runs on the phone. Its model ships in public/ so it works offline, and
 // the TensorFlow code is only loaded when transcribing: the rest of the app stays light.
 const MODEL_URL = "models/basic-pitch/model.json";
-const MODEL_RATE = 22050;
+export const MODEL_RATE = 22050;
 export const MAX_SECONDS = 300;
 
 /** Any audio file the system can read (m4a, mp3, wav…), as samples. */
@@ -17,7 +17,7 @@ export async function decodeAudio(data: ArrayBuffer): Promise<AudioBuffer> {
 }
 
 /** Mono, 22.05 kHz: what the model was trained on. The offline context downmixes and resamples in one pass. */
-async function modelInput(buffer: AudioBuffer): Promise<Float32Array> {
+export async function monoSamples(buffer: AudioBuffer): Promise<Float32Array> {
   const seconds = Math.min(buffer.duration, MAX_SECONDS);
   const offline = new OfflineAudioContext(1, Math.ceil(seconds * MODEL_RATE), MODEL_RATE);
   const source = offline.createBufferSource();
@@ -55,10 +55,9 @@ function load() {
   return engine;
 }
 
-/** Every note in the audio. `progress` goes from 0 to 1. */
-export async function transcribeAudio(buffer: AudioBuffer, progress: (p: number) => void): Promise<Note[]> {
-  const [audio, model] = await Promise.all([modelInput(buffer), load()]);
-  const notes = await model.run(audio, progress);
+/** Every note in mono 22.05 kHz samples (see monoSamples). `progress` goes from 0 to 1. */
+export async function transcribeSamples(audio: Float32Array, progress: (p: number) => void): Promise<Note[]> {
+  const notes = await (await load()).run(audio, progress);
   progress(1);
   return notes;
 }

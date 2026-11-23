@@ -37,10 +37,12 @@ A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline 
 - Metronome: 30–240 BPM, tap tempo, 2/4 to 6/4 with an accented first beat, clicks scheduled on the audio clock
 
 **Transcribe**
-- Record your guitar (or a song playing nearby) or import an audio file, and get its chords over time, the key, every note in order, and a suggested tab in your tuning
-- Notes come from [Basic Pitch](https://github.com/spotify/basic-pitch) (Spotify, Apache-2.0), running on the phone, offline; the app then cleans the model's doubles, overtones and re-triggered strings before naming chords
+- Record or import audio and get its chords over time, the key, the notes in order, and a suggested tab in your tuning, all on the phone, offline
+- Three modes, each with the analysis that suits it:
+  - **Instrument**: every note, from [Basic Pitch](https://github.com/spotify/basic-pitch) (Spotify, Apache-2.0), cleaned of the model's doubles, overtones and re-triggered strings, then named as chords
+  - **Voice**: a sung, hummed or whistled tune, followed with the tuner's pitch detector (vibrato and slides stay inside a note), plus chords from the key that fit under it
+  - **Full song**: chords read from the sound of the whole mix (drums removed by harmonic/percussive separation, harmonic-summed chroma with the bass apart, Viterbi smoothing), and the melody as the top line of the notes (an intro lead, a sample, the voice)
 - Play the original back with the current chord highlighted; tap any chord for its shapes
-- Best on one instrument; full mixes with drums and vocals give rougher results
 
 **App**
 - The screen stays on while the tuner listens, a tab is open or the metronome runs

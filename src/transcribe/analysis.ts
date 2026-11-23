@@ -29,9 +29,10 @@ export function cleanNotes(notes: Note[], tuning: number[]): Note[] {
     .sort((a, b) => a.start - b.start || a.midi - b.midi);
 
   // The same pitch again while it still rings (up to 0.5 s after the model ended it) is the same note when:
-  // it is a doubled attack (within 0.2 s), it is much quieter than the first attack, or it pops up with a
-  // louder new note of another pitch (the model re-triggers ringing strings then). Not inside a strum
-  // (4+ clear notes at once), where every string really is played again.
+  // it is a doubled attack (within 0.2 s), it is much quieter than the first attack, it pops up with a
+  // louder new note of another pitch (the model re-triggers ringing strings then), or it picks up right
+  // where the first ended and is quieter (split on a drum hit). Not inside a strum (4+ clear notes at once),
+  // where every string really is played again.
   const near = (n: Note) => sorted.filter((m) => Math.abs(m.start - n.start) <= 0.15);
   const merged: Note[] = [];
   const ringing = new Map<number, Note>();
@@ -43,7 +44,10 @@ export function cleanNotes(notes: Note[], tuning: number[]): Note[] {
     const sameNote =
       prev &&
       n.start <= prev.start + prev.duration + 0.5 &&
-      (n.start - prev.start < 0.2 || n.amplitude < prev.amplitude * 0.7 || retrigger);
+      (n.start - prev.start < 0.2 ||
+        n.amplitude < prev.amplitude * 0.7 ||
+        retrigger ||
+        (!strum && n.start - (prev.start + prev.duration) < 0.04 && n.amplitude < prev.amplitude * 0.97));
     if (prev && sameNote) {
       const end = Math.max(prev.start + prev.duration, n.start + n.duration);
       if (n.amplitude > prev.amplitude && n.start - prev.start < 0.2) prev.start = n.start; // the real attack is the loud one
@@ -169,18 +173,9 @@ function correlation(a: number[], b: number[]) {
 
 /** Most likely key of the notes (pitch-class weight against major/minor profiles). */
 export function detectKey(notes: Note[]): { root: number; minor: boolean } | null {
-  if (!notes.length) return null;
   const hist = new Array(12).fill(0);
   for (const n of notes) hist[n.midi % 12] += n.duration * n.amplitude;
-  let best = { root: 0, minor: false, r: -Infinity };
-  for (let root = 0; root < 12; root++) {
-    for (const [profile, minor] of [[MAJOR, false], [MINOR, true]] as const) {
-      const rotated = profile.map((_, i) => profile[(i - root + 12) % 12]);
-      const r = correlation(hist, rotated);
-      if (r > best.r) best = { root, minor, r };
-    }
-  }
-  return { root: best.root, minor: best.minor };
+  return keyFromProfile(hist);
 }
 
 /** Notes starting together are played together; 120 ms covers a slow strum across six strings. */
@@ -254,4 +249,39 @@ export function toTrack(placed: Placed[][], chords: ChordSpan[], tuning: number[
     measures.at(-1)!.voices[0].beats.push(beat);
   });
   return { instrument: "Transcription", tuning: [...tuning].reverse(), measures };
+}
+
+/**
+ * The tune on top: in each group of notes played together, the highest one above the bass range. On a full
+ * mix this follows the lead instrument or sample (e.g. an intro loop) rather than the accompaniment.
+ */
+export function melodyLine(notes: Note[], lowest = 55): Note[] {
+  const line: Note[] = [];
+  for (const g of groupOnsets(notes)) {
+    const top = g.filter((n) => n.midi >= lowest).sort((a, b) => b.midi - a.midi)[0];
+    const held = line.at(-1);
+    if (!top) continue;
+    // Accompaniment played under a held melody note is not the melody.
+    if (held && held.start + held.duration > top.start && top.midi < held.midi) continue;
+    // The same pitch picking up right where it ended, not louder: one note the drums split in two.
+    if (held && held.midi === top.midi && top.start - (held.start + held.duration) < 0.05 && top.amplitude <= held.amplitude) {
+      held.duration = top.start + top.duration - held.start;
+      continue;
+    }
+    line.push({ ...top });
+  }
+  return line;
+}
+
+/** Key from an energy profile per pitch class (Krumhansl–Kessler). */
+export function keyFromProfile(profile: number[]): { root: number; minor: boolean } | null {
+  if (!profile.some((v) => v > 0)) return null;
+  let best = { root: 0, minor: false, r: -Infinity };
+  for (let root = 0; root < 12; root++) {
+    for (const [p, minor] of [[MAJOR, false], [MINOR, true]] as const) {
+      const r = correlation(profile, p.map((_, i) => p[(i - root + 12) % 12]));
+      if (r > best.r) best = { root, minor, r };
+    }
+  }
+  return { root: best.root, minor: best.minor };
 }
