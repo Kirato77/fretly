@@ -1,5 +1,7 @@
 import { createEffect, createResource, createSignal, For, Index, on, onCleanup, onMount, Show } from "solid-js";
 import { load, save } from "../storage";
+import { ChordSheet } from "../tools/ChordSheet";
+import { parseChord } from "../tools/theory";
 import { INSTRUMENTS, tuningToOffer, type Tuning } from "../tuner/tunings";
 import { Icon } from "../ui/Icon";
 import { transposeLine, wrapSheet } from "./chords";
@@ -26,6 +28,7 @@ interface Props {
   /** Tunings the tuner knows, and the one it is on: to offer "Tune to DADGAD" when the tab needs it. */
   tunings: Tuning[];
   current: Tuning;
+  a4: number;
   onTune(id: string): void;
   onBack(): void;
 }
@@ -53,6 +56,7 @@ export function TabView(p: Props) {
   };
 
   const [size, setSize] = createSignal(14);
+  const [openChord, setOpenChord] = createSignal<string | null>(null);
   const [playing, setPlaying] = createSignal(false);
   const [speedIdx, setSpeedIdx] = createSignal(3);
   const [width, setWidth] = createSignal(360);
@@ -157,7 +161,17 @@ export function TabView(p: Props) {
                   <div>
                     {/* split() with a capture group alternates text / chord name */}
                     <For each={line().split(/\[ch\](.*?)\[\/ch\]/)}>
-                      {(part, i) => (i() % 2 ? <span class="chord">{part}</span> : part)}
+                      {(part, i) =>
+                        !(i() % 2) ? (
+                          part
+                        ) : parseChord(part) ? (
+                          <button class="chord" onClick={() => setOpenChord(part)} aria-label={`Show chord ${part}`}>
+                            {part}
+                          </button>
+                        ) : (
+                          <span class="chord">{part}</span>
+                        )
+                      }
                     </For>
                   </div>
                 )}
@@ -206,6 +220,9 @@ export function TabView(p: Props) {
           </Show>
         </div>
       </div>
+      <Show when={openChord()}>
+        {(name) => <ChordSheet name={name()} tuning={p.current} a4={p.a4} onClose={() => setOpenChord(null)} />}
+      </Show>
     </div>
   );
 }

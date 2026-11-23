@@ -1,6 +1,6 @@
 # Fretly
 
-A precise tuner and an offline song library for guitar, bass and ukulele, with free tabs from Ultimate Guitar and Songsterr. Built for my own iPhone because I got tired of paying for both.
+A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline song library with free tabs from Ultimate Guitar and Songsterr, chord and scale dictionaries, and a metronome. Built for my own iPhone because I got tired of paying for both.
 
 <p align="center">
   <img src="docs/tuner-dark.png" width="260" alt="Fretly tuner, dark theme: A2 in tune, string ticked as tuned" />
@@ -29,6 +29,12 @@ A precise tuner and an offline song library for guitar, bass and ukulele, with f
 - Tabs fit the phone at any text size: lyrics wrap with their chords (which stay above the right syllable), tab staffs are cut after a bar line or between beats, all strings together
 - "Tune to DADGAD": when a tab needs another tuning, one tap sets the tuner, and the Songs tab brings you back to the song
 - Transposition, remembered text size, auto-scroll with speed control in a thumb-reach toolbar
+
+**Tools**
+- Chord dictionary: 12 roots × 18 chord types, shapes computed for your tuning (DADGAD, ukulele, guitalele…), swipe through them, strum to hear
+- Tap a chord name in any tab to see its shapes
+- Scales on a vertical neck in your tuning (bass included): major, minor, pentatonics, blues, modes; notes or intervals, play to hear
+- Metronome: 30–240 BPM, tap tempo, 2/4 to 6/4 with an accented first beat, clicks scheduled on the audio clock
 
 **App**
 - Updates itself: every push to `main` is published as an encrypted, signed web bundle; the app installs it only if the signature matches the public key it ships with
@@ -62,6 +68,7 @@ Tested with Node 24.
 | `src/tabs/` | Ultimate Guitar and Songsterr clients and parsers, chord-sheet wrapping, library (favorites, recently opened), Songs tab, tab viewer |
 | `src/updater.ts` | Self-hosted live updates through [`@capgo/capacitor-updater`](https://github.com/Cap-go/capacitor-updater), no telemetry |
 | `scripts/sign-bundle.ts` | Encrypts the web bundle and signs its SHA-256 (same scheme as Capgo's CLI, Node standard library only) |
+| `src/tools/` | Music theory (chords, voicing search, scales), chord diagrams, neck, metronome |
 | `ios/` | Capacitor iOS shell |
 | `.github/workflows/web.yml` | On push: test, build, sign, publish the web bundle as a release |
 | `.github/workflows/ios.yml` | On demand: build the unsigned IPA on a macOS runner |

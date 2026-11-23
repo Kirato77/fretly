@@ -17,7 +17,7 @@ function wave(ctx: BaseAudioContext, rolloff: number) {
  * the phase, measured 1–3 cents flat). Two oscillators on the same frequency instead: a bright layer that dies
  * fast for the attack, a mellow one that rings. Only their volumes move, which never changes the pitch.
  */
-export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out: AudioNode, delay = 0) {
+export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out: AudioNode, delay = 0, gain = 1) {
   const t = ctx.currentTime + delay;
   const layer = (rolloff: number, peak: number, seconds: number) => {
     const osc = ctx.createOscillator();
@@ -25,7 +25,7 @@ export function connectTone(ctx: BaseAudioContext, midi: number, a4: number, out
     osc.frequency.value = midiToFreq(midi, a4);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, t);
-    amp.gain.linearRampToValueAtTime(peak, t + 0.005);
+    amp.gain.linearRampToValueAtTime(peak * gain, t + 0.005);
     amp.gain.exponentialRampToValueAtTime(0.001, t + seconds);
     osc.connect(amp).connect(out);
     osc.start(t);
@@ -41,10 +41,16 @@ let ctx: AudioContext | undefined;
  * Plays the reference note of a string, starting `delay` seconds from now. Call it from the tap itself:
  * iOS only lets audio start inside a gesture, so the delay is scheduled here rather than with a timer.
  */
-export function playString(midi: number, a4: number, delay = 0) {
+export function playString(midi: number, a4: number, delay = 0, gain = 1) {
   ctx ??= new AudioContext();
   void ctx.resume();
-  connectTone(ctx, midi, a4, ctx.destination, delay);
+  connectTone(ctx, midi, a4, ctx.destination, delay, gain);
+}
+
+/** Several notes one after the other: `gap` 0.04 s strums a chord, 0.3 s walks a scale. Quieter each, so a chord does not clip. */
+export function playNotes(midis: number[], a4: number, gap: number) {
+  const gain = gap < 0.1 ? 1 / Math.sqrt(midis.length) : 0.8;
+  midis.forEach((m, i) => playString(m, a4, i * gap, gain));
 }
 
 /**

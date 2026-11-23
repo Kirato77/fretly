@@ -2,6 +2,7 @@ import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { load, save } from "./storage";
 import { loadFavorites } from "./tabs/favorites";
 import { Songs } from "./tabs/Songs";
+import { Tools } from "./tools/Tools";
 import { TabView } from "./tabs/TabView";
 import type { SearchHit } from "./tabs/types";
 import { Tuner } from "./tuner/Tuner";
@@ -10,7 +11,7 @@ import { Icon } from "./ui/Icon";
 import { applyUpdate, updateReady } from "./updater";
 
 export function App() {
-  const [view, setView] = createSignal<"tuner" | "tabs">("tuner");
+  const [view, setView] = createSignal<"tuner" | "tabs" | "tools">("tuner");
   const [customs, setCustoms] = createSignal<Tuning[]>([]);
   const [tuningId, setTuningId] = createSignal(DEFAULT_TUNING.id);
   const [a4, setA4] = createSignal(440);
@@ -75,6 +76,7 @@ export function App() {
                 hit={hit()}
                 tunings={tunings()}
                 current={tuning()}
+                a4={a4()}
                 onTune={(id) => {
                   setTuningId(id);
                   setView("tuner"); // the tab stays open: the Songs tab brings you back to it
@@ -83,6 +85,9 @@ export function App() {
               />
             )}
           </Show>
+        </section>
+        <section class="view" hidden={view() !== "tools"}>
+          <Tools tuning={tuning()} a4={a4()} active={view() === "tools"} />
         </section>
       </main>
       {/* "Later" keeps the controls underneath usable; the update still applies when the app is next left. */}
@@ -113,6 +118,10 @@ export function App() {
         >
           <Icon name="songs" />
           <span>Songs</span>
+        </button>
+        <button classList={{ on: view() === "tools" }} onClick={() => setView("tools")} aria-current={view() === "tools" ? "page" : undefined}>
+          <Icon name="tools" />
+          <span>Tools</span>
         </button>
       </nav>
     </div>
