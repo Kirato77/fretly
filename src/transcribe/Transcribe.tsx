@@ -14,9 +14,11 @@ import {
   detectChords,
   detectKey,
   groupOnsets,
+  joinFragments,
   keyFromProfile,
   melodyLine,
   placeOnStrings,
+  smooth,
   toTrack,
   type ChordSpan,
   type Note,
@@ -99,15 +101,15 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
   const notes = createMemo(() => {
     const raw = result()?.notes ?? [];
     if (resultMode() === "voice") return raw; // already clean: one note at a time, from the pitch tracker
-    const clean = cleanNotes(raw, p.tuning.notes);
-    return resultMode() === "song" ? melodyLine(clean) : clean;
+    // Full song: the tune from C4 up, so bass lines and pads stay out of it.
+    return resultMode() === "song" ? melodyLine(cleanNotes(joinFragments(raw), p.tuning.notes, true), 60) : cleanNotes(raw, p.tuning.notes);
   });
   const key = createMemo(() => {
     const profile = result()?.profile;
     return resultMode() === "song" && profile ? keyFromProfile(profile) : detectKey(notes());
   });
   const chords = createMemo(() => {
-    if (resultMode() === "song") return result()?.chords ?? [];
+    if (resultMode() === "song") return smooth(result()?.chords ?? [], 1);
     if (resultMode() === "voice") return key() ? harmonize(notes(), key()!) : [];
     return detectChords(notes());
   });

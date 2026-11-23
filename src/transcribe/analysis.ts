@@ -21,7 +21,7 @@ const OVERTONES = [12, 19, 24, 28, 31, 36]; // octave, 12th, 2 octaves… above 
  * Keeps the notes a player would play. The model also reports: a ringing note split in two or doubled at the
  * attack (merged back), overtones of a louder note (dropped), and short quiet blips (dropped).
  */
-export function cleanNotes(notes: Note[], tuning: number[]): Note[] {
+export function cleanNotes(notes: Note[], tuning: number[], mix = false): Note[] {
   const low = Math.min(...tuning) - 1;
   const high = Math.max(...tuning) + 24;
   const sorted = notes
@@ -60,10 +60,13 @@ export function cleanNotes(notes: Note[], tuning: number[]): Note[] {
     ringing.set(n.midi, copy);
   }
 
+  // In a mix, a melody note two or three octaves above a loud bass is common (it sits on the root): only the
+  // octave ghost, the model's most frequent one, is dropped there.
+  const intervals = mix ? [12] : OVERTONES;
   const overtone = (n: Note) =>
     merged.some(
       (o) =>
-        OVERTONES.includes(n.midi - o.midi) &&
+        intervals.includes(n.midi - o.midi) &&
         o.amplitude >= n.amplitude * 1.6 &&
         o.start <= n.start + 0.05 &&
         o.start + o.duration > n.start,
@@ -137,7 +140,7 @@ function merge(spans: ChordSpan[]) {
 }
 
 /** Folds spans shorter than `minLength` into their neighbour, then joins equal neighbours. */
-function smooth(spans: ChordSpan[], minLength: number) {
+export function smooth(spans: ChordSpan[], minLength: number) {
   let out = merge(spans);
   for (let changed = true; changed; ) {
     changed = false;
@@ -252,6 +255,27 @@ export function toTrack(placed: Placed[][], chords: ChordSpan[], tuning: number[
 }
 
 /**
+ * On a full mix the model chops held notes into fragments (~0.08 s, same pitch, back to back), which the
+ * cleanup would drop as blips: glue them back first. Not for a solo instrument, where that is tremolo.
+ */
+export function joinFragments(notes: Note[], gap = 0.1): Note[] {
+  const out: Note[] = [];
+  const last = new Map<number, Note>();
+  for (const n of [...notes].sort((a, b) => a.start - b.start)) {
+    const prev = last.get(n.midi);
+    if (prev && n.start - (prev.start + prev.duration) < gap) {
+      prev.duration = Math.max(prev.duration, n.start + n.duration - prev.start);
+      prev.amplitude = Math.max(prev.amplitude, n.amplitude);
+      continue;
+    }
+    const copy = { ...n };
+    out.push(copy);
+    last.set(n.midi, copy);
+  }
+  return out;
+}
+
+/**
  * The tune on top: in each group of notes played together, the highest one above the bass range. On a full
  * mix this follows the lead instrument or sample (e.g. an intro loop) rather than the accompaniment.
  */
@@ -261,8 +285,8 @@ export function melodyLine(notes: Note[], lowest = 55): Note[] {
     const top = g.filter((n) => n.midi >= lowest).sort((a, b) => b.midi - a.midi)[0];
     const held = line.at(-1);
     if (!top) continue;
-    // Accompaniment played under a held melody note is not the melody.
-    if (held && held.start + held.duration > top.start && top.midi < held.midi) continue;
+    // Accompaniment played under a held melody note is not the melody (a legato overlap is).
+    if (held && held.start + held.duration > top.start + 0.1 && top.midi < held.midi) continue;
     // The same pitch picking up right where it ended, not louder: one note the drums split in two.
     if (held && held.midi === top.midi && top.start - (held.start + held.duration) < 0.05 && top.amplitude <= held.amplitude) {
       held.duration = top.start + top.duration - held.start;

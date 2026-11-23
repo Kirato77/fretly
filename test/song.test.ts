@@ -1,7 +1,8 @@
 import process from "node:process";
 import { describe, expect, it } from "vitest";
 import { chordName } from "../src/tools/theory";
-import { melodyLine, type Note } from "../src/transcribe/analysis";
+import { cleanNotes, joinFragments, melodyLine, type Note } from "../src/transcribe/analysis";
+import { PRESETS } from "../src/tuner/tunings";
 import { songChords } from "../src/transcribe/chroma";
 import { harmonize, pitchTrack, segmentMelody } from "../src/transcribe/melody";
 import { midiToFreq, parseNote } from "../src/tuner/notes";
@@ -87,5 +88,22 @@ describe("melody of a mix", () => {
     const n = (start: number, amplitude: number): Note => ({ midi: parseNote("A4"), start, duration: 0.25, amplitude });
     expect(melodyLine([n(0, 0.6), n(0.25, 0.58)]).map((x) => x.duration)).toEqual([0.5]);
     expect(melodyLine([n(0, 0.6), n(0.25, 0.7)])).toHaveLength(2);
+  });
+});
+
+describe("fragments of a mix", () => {
+  it("glues a held note the model chopped into pieces, keeps separate notes apart", () => {
+    const n = (start: number, midi = 76): Note => ({ midi, start, duration: 0.08, amplitude: 0.5 });
+    const joined = joinFragments([n(0.58), n(0.67), n(0.75), n(0.84), n(1.4), n(0.7, 69)]);
+    expect(joined.map((x) => [x.midi, x.start, +x.duration.toFixed(2)])).toEqual([[76, 0.58, 0.34], [69, 0.7, 0.08], [76, 1.4, 0.08]]);
+  });
+});
+
+describe("melody over a loud bass", () => {
+  it("keeps a melody note two octaves above the bass in a mix", () => {
+    const bass: Note = { midi: parseNote("E3"), start: 4.35, duration: 1, amplitude: 0.9 };
+    const tune: Note = { midi: parseNote("E5"), start: 4.38, duration: 0.44, amplitude: 0.47 };
+    expect(cleanNotes([bass, tune], PRESETS[0].notes, true)).toHaveLength(2);
+    expect(cleanNotes([bass, tune], PRESETS[0].notes)).toHaveLength(1); // solo instrument: that is an overtone
   });
 });
