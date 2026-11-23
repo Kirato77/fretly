@@ -1,6 +1,6 @@
 # Fretly
 
-A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline song library with free tabs from Ultimate Guitar and Songsterr, chord and scale dictionaries, and a metronome. Built for my own iPhone because I got tired of paying for both.
+A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline song library with free tabs from Ultimate Guitar and Songsterr, chord and scale dictionaries, a metronome, and a transcriber that turns a recording into chords and notes. Built for my own iPhone because I got tired of paying for both.
 
 <p align="center">
   <img src="docs/tuner-dark.png" width="260" alt="Fretly tuner, dark theme: A2 in tune, string ticked as tuned" />
@@ -36,6 +36,12 @@ A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline 
 - Scales on a vertical neck in your tuning (bass included): major, minor, pentatonics, blues, modes; notes or intervals, play to hear
 - Metronome: 30–240 BPM, tap tempo, 2/4 to 6/4 with an accented first beat, clicks scheduled on the audio clock
 
+**Transcribe**
+- Record your guitar (or a song playing nearby) or import an audio file, and get its chords over time, the key, every note in order, and a suggested tab in your tuning
+- Notes come from [Basic Pitch](https://github.com/spotify/basic-pitch) (Spotify, Apache-2.0), running on the phone, offline; the app then cleans the model's doubles, overtones and re-triggered strings before naming chords
+- Play the original back with the current chord highlighted; tap any chord for its shapes
+- Best on one instrument; full mixes with drums and vocals give rougher results
+
 **App**
 - The screen stays on while the tuner listens, a tab is open or the metronome runs
 - Updates itself: every push to `main` is published as an encrypted, signed web bundle; the app installs it only if the signature matches the public key it ships with
@@ -70,6 +76,8 @@ Tested with Node 24.
 | `src/updater.ts` | Self-hosted live updates through [`@capgo/capacitor-updater`](https://github.com/Cap-go/capacitor-updater), no telemetry |
 | `scripts/sign-bundle.ts` | Encrypts the web bundle and signs its SHA-256 (same scheme as Capgo's CLI, Node standard library only) |
 | `src/tools/` | Music theory (chords, voicing search, scales), chord diagrams, neck, metronome |
+| `src/transcribe/` | Audio to notes (Basic Pitch, loaded on demand), note cleanup, chord timeline, key, string placement |
+| `public/models/basic-pitch/` | The Basic Pitch model and its license, served with the app for offline use |
 | `ios/` | Capacitor iOS shell |
 | `.github/workflows/web.yml` | On push: test, build, sign, publish the web bundle as a release |
 | `.github/workflows/ios.yml` | On demand: build the unsigned IPA on a macOS runner |

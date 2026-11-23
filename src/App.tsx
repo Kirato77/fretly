@@ -4,6 +4,7 @@ import { load, save } from "./storage";
 import { loadFavorites } from "./tabs/favorites";
 import { Songs } from "./tabs/Songs";
 import { Tools } from "./tools/Tools";
+import { Transcribe } from "./transcribe/Transcribe";
 import { TabView } from "./tabs/TabView";
 import type { SearchHit } from "./tabs/types";
 import { Tuner } from "./tuner/Tuner";
@@ -12,7 +13,7 @@ import { Icon } from "./ui/Icon";
 import { applyUpdate, updateReady } from "./updater";
 
 export function App() {
-  const [view, setView] = createSignal<"tuner" | "tabs" | "tools">("tuner");
+  const [view, setView] = createSignal<"tuner" | "tabs" | "tools" | "transcribe">("tuner");
   const [customs, setCustoms] = createSignal<Tuning[]>([]);
   const [tuningId, setTuningId] = createSignal(DEFAULT_TUNING.id);
   const [a4, setA4] = createSignal(440);
@@ -93,6 +94,9 @@ export function App() {
         <section class="view" hidden={view() !== "tools"}>
           <Tools tuning={tuning()} a4={a4()} active={view() === "tools"} />
         </section>
+        <section class="view" hidden={view() !== "transcribe"}>
+          <Transcribe tuning={tuning()} a4={a4()} active={view() === "transcribe"} />
+        </section>
       </main>
       {/* "Later" keeps the controls underneath usable; the update still applies when the app is next left. */}
       <Show when={updateReady() && !toastHidden()}>
@@ -126,6 +130,10 @@ export function App() {
         <button classList={{ on: view() === "tools" }} onClick={() => setView("tools")} aria-current={view() === "tools" ? "page" : undefined}>
           <Icon name="tools" />
           <span>Tools</span>
+        </button>
+        <button classList={{ on: view() === "transcribe" }} onClick={() => setView("transcribe")} aria-current={view() === "transcribe" ? "page" : undefined}>
+          <Icon name="wave" />
+          <span>Transcribe</span>
         </button>
       </nav>
     </div>

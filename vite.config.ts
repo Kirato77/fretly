@@ -23,5 +23,7 @@ export default defineConfig(({ mode }) => ({
       "/proxy/songsterr-cdn/": relay("https://dqsljvtekg760.cloudfront.net"),
     },
   },
+  // TensorFlow + Basic Pitch is one ~1 MB chunk by design, loaded only when transcribing.
+  build: { chunkSizeWarningLimit: 1100 },
   test: { environment: "node" },
 }));
