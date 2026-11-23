@@ -46,3 +46,12 @@ export function playString(midi: number, a4: number, delay = 0) {
   void ctx.resume();
   connectTone(ctx, midi, a4, ctx.destination, delay);
 }
+
+/**
+ * Cuts any note still ringing. Closing the context is the only sure stop: when the mic opens mid-note,
+ * iOS switches the audio session and the context's clock can stall, so the note's fade and stop never come.
+ */
+export function stopTone() {
+  void ctx?.close();
+  ctx = undefined;
+}

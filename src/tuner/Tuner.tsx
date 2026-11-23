@@ -3,7 +3,7 @@ import { Icon } from "../ui/Icon";
 import { Dial } from "./Dial";
 import { noteName, octave, pitchClass } from "./notes";
 import { nearestString, Smoother, startMic, type Mic } from "./pitch";
-import { playString, TONE_SECONDS } from "./tone";
+import { playString, stopTone, TONE_SECONDS } from "./tone";
 import { TuningSheet } from "./TuningSheet";
 import { INSTRUMENTS, type Tuning } from "./tunings";
 
@@ -73,6 +73,11 @@ export function Tuner(p: Props) {
     if (starting || mic) return; // a double tap would open a second mic that nothing stops
     starting = true;
     setError("");
+    // A reference note still ringing would get stuck when the mic opens, and the tuner would hear it.
+    stopTone();
+    clearTimeout(toneTimer);
+    setToning(null);
+    deafUntil = 0;
     try {
       const opened = await startMic(
         (m) => {
