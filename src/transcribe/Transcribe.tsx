@@ -24,8 +24,8 @@ import {
   type Note,
 } from "./analysis";
 import { songChords } from "./chroma";
-import { decodeAudio, MAX_SECONDS, MODEL_RATE, monoSamples, transcribeSamples } from "./engine";
-import { harmonize, pitchTrack, segmentMelody } from "./melody";
+import { decodeAudio, loadVoiceModel, MAX_SECONDS, MODEL_RATE, monoSamples, transcribeSamples } from "./engine";
+import { harmonize, segmentMelody, VOICE_RATE, voiceTrack } from "./melody";
 
 type View = "chords" | "notes" | "tab";
 type Mode = "instrument" | "voice" | "song";
@@ -73,7 +73,10 @@ const CHAR_RATIO = 0.6;
 export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
   const [result, setResult] = createSignal<Saved | null>(null);
   const [audio, setAudio] = createSignal<AudioBuffer | null>(null); // original, for playback (not kept across launches)
-  const [phase, setPhase] = createSignal<"idle" | "recording" | "working">("idle");
+  const [phase, setPhase] = createSignal<"idle" | "recording" | "trim" | "working">("idle");
+  const [pending, setPending] = createSignal<{ name: string; buffer: AudioBuffer } | null>(null); // imported, passage not chosen yet
+  const [from, setFrom] = createSignal(0);
+  const [to, setTo] = createSignal(0);
   const [progress, setProgress] = createSignal(0);
   const [elapsed, setElapsed] = createSignal(0);
   const [error, setError] = createSignal("");
@@ -130,26 +133,36 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
     return rows;
   });
 
-  async function analyse(name: string, data: ArrayBuffer) {
+  async function decode(data: ArrayBuffer): Promise<AudioBuffer | null> {
+    try {
+      return await decodeAudio(data);
+    } catch (e) {
+      setError(`Could not read this audio (${e instanceof Error ? e.message : e}).`);
+      setPhase("idle");
+      return null;
+    }
+  }
+
+  async function analyse(name: string, buffer: AudioBuffer) {
+    stopPlayback();
     setPhase("working");
     setProgress(0);
     setError("");
     try {
-      const buffer = await decodeAudio(data);
-      const samples = await monoSamples(buffer);
       const m = mode();
       const saved: Saved = { name, duration: Math.min(buffer.duration, MAX_SECONDS), mode: m, notes: [] };
       if (m === "voice") {
-        saved.notes = segmentMelody(pitchTrack(samples, MODEL_RATE));
-        setProgress(1);
+        const [samples, model] = await Promise.all([monoSamples(buffer, VOICE_RATE), loadVoiceModel()]);
+        saved.notes = segmentMelody(await voiceTrack(samples, model, setProgress));
       } else if (m === "song") {
         // Chords first (quick), then every note for the melody line (the model takes most of the time).
+        const samples = await monoSamples(buffer);
         const { spans, profile } = await songChords(samples, MODEL_RATE, (x) => setProgress(x * 0.25));
         saved.chords = spans;
         saved.profile = profile;
         saved.notes = await transcribeSamples(samples, (x) => setProgress(0.25 + x * 0.75));
       } else {
-        saved.notes = await transcribeSamples(samples, setProgress);
+        saved.notes = await transcribeSamples(await monoSamples(buffer), setProgress);
       }
       if (!saved.notes.length && !saved.chords?.some((c) => c.chord)) {
         setError(
@@ -164,7 +177,7 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
       setView(m === "voice" ? "notes" : "chords"); // a tune is its notes; its chords are only suggestions
       void save("lastTranscription", saved);
     } catch (e) {
-      setError(`Could not read this audio (${e instanceof Error ? e.message : e}).`);
+      setError(`Could not analyse this audio (${e instanceof Error ? e.message : e}).`);
     } finally {
       setPhase("idle");
     }
@@ -187,7 +200,8 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
         clearInterval(ticker);
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type: recorder?.mimeType });
-        if (blob.size) await analyse(`Recording · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`, await blob.arrayBuffer());
+        const buffer = blob.size ? await decode(await blob.arrayBuffer()) : null;
+        if (buffer) await analyse(`Recording · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`, buffer);
         else setPhase("idle");
       };
       recorder.start();
@@ -205,19 +219,58 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
   }
   const stopRecording = () => recorder?.state === "recording" && recorder.stop();
 
+  // Long imports: pick the passage first (quicker, and only what you want to learn).
   async function importFile(file: File | undefined) {
     if (!file) return;
     stopPlayback();
-    await analyse(file.name.replace(/\.[^.]+$/, ""), await file.arrayBuffer());
+    setError("");
+    const name = file.name.replace(/\.[^.]+$/, "");
+    const buffer = await decode(await file.arrayBuffer());
     fileInput.value = "";
+    if (!buffer) return;
+    if (buffer.duration <= 20) return analyse(name, buffer);
+    setPending({ name, buffer });
+    setFrom(0);
+    setTo(Math.min(buffer.duration, MAX_SECONDS));
+    setPhase("trim");
   }
+
+  /** A copy of [start, end) seconds of the buffer. */
+  function slice(buffer: AudioBuffer, start: number, end: number) {
+    const a = Math.floor(start * buffer.sampleRate);
+    const b = Math.min(buffer.length, Math.ceil(end * buffer.sampleRate));
+    const out = new AudioBuffer({ length: b - a, numberOfChannels: buffer.numberOfChannels, sampleRate: buffer.sampleRate });
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) out.copyToChannel(buffer.getChannelData(ch).subarray(a, b), ch);
+    return out;
+  }
+
+  function transcribePassage() {
+    const p = pending();
+    if (!p) return;
+    const whole = from() === 0 && to() >= p.buffer.duration - 0.25;
+    setPending(null);
+    void analyse(whole ? p.name : `${p.name} · ${clock(from())}–${clock(to())}`, whole ? p.buffer : slice(p.buffer, from(), to()));
+  }
+  function cancelPassage() {
+    stopPlayback();
+    setPending(null);
+    setPhase("idle");
+  }
+  // Both ends move together within the limits: at least 2 s, at most MAX_SECONDS.
+  const moveFrom = (v: number) => {
+    setFrom(Math.min(v, Math.max(0, to() - 2)));
+    if (to() - from() > MAX_SECONDS) setTo(from() + MAX_SECONDS);
+  };
+  const moveTo = (v: number) => {
+    setTo(Math.max(v, from() + 2));
+    if (to() - from() > MAX_SECONDS) setFrom(to() - MAX_SECONDS);
+  };
 
   // Playback of the original, with the current chord highlighted.
   let ctx: AudioContext | undefined;
   let source: AudioBufferSourceNode | undefined;
   let raf = 0;
-  function play(from = 0) {
-    const buffer = audio();
+  function play(start = 0, buffer = audio(), end?: number) {
     if (!buffer) return;
     stopPlayback();
     ctx ??= new AudioContext();
@@ -225,8 +278,8 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
     source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);
-    const startedAt = ctx.currentTime - from;
-    source.start(0, from);
+    const startedAt = ctx.currentTime - start;
+    source.start(0, start, end === undefined ? undefined : end - start);
     source.onended = () => stopPlayback();
     const tick = () => {
       setPlayhead(ctx!.currentTime - startedAt);
@@ -288,6 +341,58 @@ export function Transcribe(p: { tuning: Tuning; a4: number; active: boolean }) {
           </button>
           <span class="muted small">Stop to transcribe</span>
         </div>
+      </Show>
+
+      <Show when={phase() === "trim" && pending()}>
+        {(p) => (
+          <div class="card passage">
+            <div class="chord-title small-title">{p().name}</div>
+            <p class="muted small">Choose the passage to transcribe: the shorter, the quicker.</p>
+            <label class="passage-row">
+              <span>Start</span>
+              <input
+                class="bpm-slider"
+                type="range"
+                min={0}
+                max={p().buffer.duration}
+                step={0.5}
+                value={from()}
+                onInput={(e) => moveFrom(+e.currentTarget.value)}
+              />
+              <span class="time">{clock(from())}</span>
+            </label>
+            <label class="passage-row">
+              <span>End</span>
+              <input
+                class="bpm-slider"
+                type="range"
+                min={0}
+                max={p().buffer.duration}
+                step={0.5}
+                value={to()}
+                onInput={(e) => moveTo(+e.currentTarget.value)}
+              />
+              <span class="time">{clock(to())}</span>
+            </label>
+            <div class="passage-actions">
+              <button
+                class="hear-btn small"
+                classList={{ on: playhead() !== null }}
+                onClick={() => (playhead() === null ? play(from(), p().buffer, to()) : stopPlayback())}
+                aria-label={playhead() === null ? "Hear the passage" : "Stop"}
+              >
+                <Icon name={playhead() === null ? "play" : "pause"} size={18} filled={playhead() === null} />
+              </button>
+              <span class="muted small">{clock(to() - from())}</span>
+              <button class="text-btn" onClick={cancelPassage}>
+                Cancel
+              </button>
+              <button class="primary" onClick={transcribePassage}>
+                Transcribe
+              </button>
+            </div>
+          </div>
+        )}
       </Show>
 
       <Show when={phase() === "working"}>

@@ -40,8 +40,9 @@ A guitarist's toolbox for guitar, bass and ukulele: a precise tuner, an offline 
 - Record or import audio and get its chords over time, the key, the notes in order, and a suggested tab in your tuning, all on the phone, offline
 - Three modes, each with the analysis that suits it:
   - **Instrument**: every note, from [Basic Pitch](https://github.com/spotify/basic-pitch) (Spotify, Apache-2.0), cleaned of the model's doubles, overtones and re-triggered strings, then named as chords
-  - **Voice**: a sung, hummed or whistled tune, followed with the tuner's pitch detector (vibrato and slides stay inside a note), plus chords from the key that fit under it
+  - **Voice**: a sung, hummed or whistled tune, followed by [CREPE](https://github.com/marl/crepe) (a neural pitch tracker, MIT, 2 MB), steady through breath, room echo and a phone mic; vibrato and slides stay inside a note, brief octave slips are folded back; plus chords from the key that fit under it
   - **Full song**: chords read from the sound of the whole mix (drums removed by harmonic/percussive separation, harmonic-summed chroma with the bass apart, Viterbi smoothing), and the melody as the top line of the notes (an intro lead, a sample, the voice)
+- Long imports: pick the passage first (start, end, hear it), quicker and focused on what you want to learn
 - Play the original back with the current chord highlighted; tap any chord for its shapes
 
 **App**
@@ -79,7 +80,7 @@ Tested with Node 24.
 | `scripts/sign-bundle.ts` | Encrypts the web bundle and signs its SHA-256 (same scheme as Capgo's CLI, Node standard library only) |
 | `src/tools/` | Music theory (chords, voicing search, scales), chord diagrams, neck, metronome |
 | `src/transcribe/` | Audio to notes (Basic Pitch, loaded on demand), note cleanup, chord timeline, key, string placement |
-| `public/models/basic-pitch/` | The Basic Pitch model and its license, served with the app for offline use |
+| `public/models/basic-pitch/`, `public/models/crepe/` | The Basic Pitch and CREPE models with their licenses (and checksums), served with the app for offline use |
 | `ios/` | Capacitor iOS shell |
 | `.github/workflows/web.yml` | On push: test, build, sign, publish the web bundle as a release |
 | `.github/workflows/ios.yml` | On demand: build the unsigned IPA on a macOS runner |

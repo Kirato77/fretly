@@ -1849,3 +1849,33 @@ button.row.timeline {
     transition: none !important;
   }
 }
+
+.passage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.passage-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.passage-row .time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.passage-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.passage-actions .text-btn {
+  margin-left: auto;
+}

@@ -1,3 +1,4 @@
+import type { LayersModel } from "@tensorflow/tfjs";
 import type { Note } from "./analysis";
 
 // Basic Pitch (Spotify, Apache-2.0) runs on the phone. Its model ships in public/ so it works offline, and
@@ -16,10 +17,10 @@ export async function decodeAudio(data: ArrayBuffer): Promise<AudioBuffer> {
   }
 }
 
-/** Mono, 22.05 kHz: what the model was trained on. The offline context downmixes and resamples in one pass. */
-export async function monoSamples(buffer: AudioBuffer): Promise<Float32Array> {
+/** Mono at `rate` (22.05 kHz: what Basic Pitch was trained on). The offline context downmixes and resamples in one pass. */
+export async function monoSamples(buffer: AudioBuffer, rate = MODEL_RATE): Promise<Float32Array> {
   const seconds = Math.min(buffer.duration, MAX_SECONDS);
-  const offline = new OfflineAudioContext(1, Math.ceil(seconds * MODEL_RATE), MODEL_RATE);
+  const offline = new OfflineAudioContext(1, Math.ceil(seconds * rate), rate);
   const source = offline.createBufferSource();
   source.buffer = buffer;
   source.connect(offline.destination);
@@ -60,4 +61,12 @@ export async function transcribeSamples(audio: Float32Array, progress: (p: numbe
   const notes = await (await load()).run(audio, progress);
   progress(1);
   return notes;
+}
+
+let voiceModel: Promise<LayersModel> | undefined;
+
+/** CREPE, the voice pitch model (public/models/crepe), loaded once on first use. */
+export function loadVoiceModel(): Promise<LayersModel> {
+  voiceModel ??= import("@tensorflow/tfjs").then((tf) => tf.loadLayersModel("models/crepe/model.json"));
+  return voiceModel;
 }

@@ -1,10 +1,12 @@
+import { readFileSync } from "node:fs";
 import process from "node:process";
+import * as tf from "@tensorflow/tfjs";
 import { describe, expect, it } from "vitest";
 import { chordName } from "../src/tools/theory";
 import { cleanNotes, joinFragments, melodyLine, type Note } from "../src/transcribe/analysis";
 import { PRESETS } from "../src/tuner/tunings";
 import { songChords } from "../src/transcribe/chroma";
-import { harmonize, pitchTrack, segmentMelody } from "../src/transcribe/melody";
+import { foldOctaves, harmonize, segmentMelody, VOICE_RATE, voiceTrack } from "../src/transcribe/melody";
 import { midiToFreq, parseNote } from "../src/tuner/notes";
 
 const RATE = 22050;
@@ -50,38 +52,78 @@ describe("full song chords", () => {
   }, 30000);
 });
 
+/** The shipped CREPE model, read from disk (in the app it is fetched). */
+async function crepe() {
+  const dir = new URL("../public/models/crepe/", import.meta.url);
+  const json = JSON.parse(readFileSync(new URL("model.json", dir), "utf8"));
+  const group = json.weightsManifest as { paths: string[]; weights: tf.io.WeightsManifestEntry[] }[];
+  const parts = group.flatMap((g) => g.paths.map((p) => readFileSync(new URL(p, dir))));
+  const data = new Uint8Array(parts.reduce((a, b) => a + b.length, 0));
+  parts.reduce((offset, b) => (data.set(b, offset), offset + b.length), 0);
+  return tf.loadLayersModel(tf.io.fromMemory({ modelTopology: json.modelTopology, weightSpecs: group.flatMap((g) => g.weights), weightData: data.buffer }));
+}
+const voice = async (buf: Float32Array) => segmentMelody(await voiceTrack(buf, await crepe()));
+
 describe("sung melody", () => {
-  it("reads notes through vibrato and scoops", () => {
+  it("reads notes through vibrato and scoops", async () => {
     const tune = ["C4", "D4", "E4", "E4", "G4", "E4"].map(parseNote);
-    const buf = new Float32Array(Math.ceil(tune.length * 0.4 * RATE));
+    const buf = new Float32Array(Math.ceil(tune.length * 0.4 * VOICE_RATE));
     let phase = 0;
     for (let i = 0; i < buf.length; i++) {
-      const t = i / RATE;
+      const t = i / VOICE_RATE;
       const k = Math.min(tune.length - 1, Math.floor(t / 0.4));
       const inNote = t - k * 0.4;
       const scoop = inNote < 0.03 && k > 0 ? (tune[k - 1] - tune[k]) * (1 - inNote / 0.03) : 0; // slide in
       const vibrato = 0.3 * Math.sin(2 * Math.PI * 5.5 * t); // ±30 cents
-      phase += (2 * Math.PI * midiToFreq(tune[k] + scoop + vibrato)) / RATE;
+      phase += (2 * Math.PI * midiToFreq(tune[k] + scoop + vibrato)) / VOICE_RATE;
       const syllable = Math.min(1, inNote / 0.04, (0.4 - inNote) / 0.04); // each note sung as its own syllable
       buf[i] = 0.4 * syllable * (Math.sin(phase) + 0.5 * Math.sin(2 * phase) + 0.25 * Math.sin(3 * phase)) + 0.01 * rand();
     }
-    const notes = segmentMelody(pitchTrack(buf, RATE));
-    expect(notes.map((n) => n.midi)).toEqual(tune);
-  });
+    expect((await voice(buf)).map((n) => n.midi)).toEqual(tune);
+  }, 60000);
 
-  it("reads a quiet hum, as the iPhone mic records it, and ignores the room noise", () => {
+  it("reads a quiet hum, as the iPhone mic records it, and ignores the room noise", async () => {
     const tune = ["E4", "G4", "A4", "G4"].map(parseNote);
-    const buf = new Float32Array(Math.ceil(3 * RATE));
+    const buf = new Float32Array(Math.ceil(3 * VOICE_RATE));
     let phase = 0;
     for (let i = 0; i < buf.length; i++) {
-      const t = i / RATE;
+      const t = i / VOICE_RATE;
       const k = Math.floor((t - 0.5) / 0.45);
       const humming = k >= 0 && k < tune.length;
-      if (humming) phase += (2 * Math.PI * midiToFreq(tune[k] + 0.25 * Math.sin(2 * Math.PI * 5 * t))) / RATE;
+      if (humming) phase += (2 * Math.PI * midiToFreq(tune[k] + 0.25 * Math.sin(2 * Math.PI * 5 * t))) / VOICE_RATE;
       const syllable = humming ? Math.min(1, ((t - 0.5) % 0.45) / 0.03, (0.45 - ((t - 0.5) % 0.45)) / 0.03) : 0;
       buf[i] = 0.004 * syllable * (Math.sin(phase) + 0.3 * Math.sin(2 * phase)) + 0.0003 * rand(); // peak ~-45 dBFS
     }
-    expect(segmentMelody(pitchTrack(buf, RATE)).map((n) => n.midi)).toEqual(tune);
+    expect((await voice(buf)).map((n) => n.midi)).toEqual(tune);
+  }, 60000);
+
+  it("reads a low male hum through a phone mic: weak fundamental, breath noise, room echo", async () => {
+    const tune = ["A2", "C3", "D3", "E3", "D3", "C3"].map(parseNote);
+    const len = 0.4;
+    const buf = new Float32Array(Math.ceil((tune.length * len + 0.6) * VOICE_RATE));
+    let phase = 0;
+    for (let i = 0; i < tune.length * len * VOICE_RATE; i++) {
+      const t = i / VOICE_RATE;
+      const k = Math.floor(t / len);
+      const inNote = t - k * len;
+      phase += (2 * Math.PI * midiToFreq(tune[k] + 0.3 * Math.sin(2 * Math.PI * 5 * t))) / VOICE_RATE;
+      const syllable = Math.min(1, inNote / 0.04, (len - inNote) / 0.04);
+      // the mic barely picks up the fundamental (~110 Hz): the 2nd and 3rd harmonics carry the voice
+      const v = 0.08 * Math.sin(phase) + Math.sin(2 * phase) + 0.8 * Math.sin(3 * phase) + 0.4 * Math.sin(4 * phase) + 0.2 * Math.sin(5 * phase);
+      buf[i] = 0.05 * syllable * v + 0.012 * rand(); // breath / room noise
+    }
+    for (let i = buf.length - 1; i >= 0; i--) for (const [d, g] of [[0.031, 0.35], [0.067, 0.22], [0.113, 0.12]] as const) {
+      const j = i - Math.round(d * VOICE_RATE); // a small room's echoes
+      if (j >= 0) buf[i] += g * buf[j];
+    }
+    expect((await voice(buf)).map((n) => n.midi)).toEqual(tune);
+  }, 60000);
+
+  it("folds brief octave slips back, keeps a real octave leap", () => {
+    const held = [...Array(20).fill(50), 61.9, 62, 61.8, ...Array(20).fill(50)];
+    expect(foldOctaves(held).every((m) => Math.abs(m! - 50) < 0.3)).toBe(true);
+    const leap = [...Array(30).fill(50), ...Array(30).fill(62)];
+    expect(foldOctaves(leap).slice(-10)).toEqual(Array(10).fill(62));
   });
 
   it("suggests chords that fit the melody in its key", () => {
